@@ -72,11 +72,11 @@ jobs:
       - name: Seed database
         run: pnpm --filter api exec prisma db seed
 
-      # --no-fix: the local `lint` script auto-fixes, which in CI would mean
-      # silently rewriting files and reporting success for problems that are
-      # still in the committed source.
+      # `lint` checks without rewriting; `lint:fix` is the local convenience.
+      # It used to auto-fix, which in CI meant silently rewriting files and
+      # reporting success for problems still present in the committed source.
       - name: Lint
-        run: pnpm run lint -- --no-fix
+        run: pnpm run lint
 
       - name: Typecheck
         run: pnpm run typecheck
