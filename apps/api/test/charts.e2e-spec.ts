@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { agent, createTestApp } from './support/test-app';
+import { agent, clearCache, createTestApp } from './support/test-app';
 
 const USERNAME = process.env.SEED_ADMIN_USERNAME ?? 'superadmin';
 const PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe123!';
@@ -129,6 +129,11 @@ describe('Charts (e2e)', () => {
     });
 
     receiptIds = [receipt1.id, receipt2.id];
+
+    // Fixtures went in through Prisma, so nothing invalidated the response
+    // cache; a stale analytics answer from another suite would otherwise
+    // hide the rows just created.
+    await clearCache(app);
   });
 
   afterAll(async () => {

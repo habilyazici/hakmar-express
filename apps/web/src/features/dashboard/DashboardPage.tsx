@@ -33,11 +33,24 @@ const monthLabel = new Intl.DateTimeFormat('tr-TR', {
   year: 'numeric',
 });
 
+/**
+ * The API compares rolling day windows ending today, not calendar periods:
+ * "month" is the last 30 days against the 30 before it. Labelling those
+ * buttons "Ay" and the columns "Bu Ay / Geçen Ay" read as August versus
+ * July, which is not what the number is. Day counts say what it does.
+ */
+const PERIOD_DAYS: Record<Period, number> = {
+  week: 7,
+  month: 30,
+  quarter: 90,
+  year: 365,
+};
+
 const PERIOD_LABELS: Record<Period, string> = {
-  week: 'Hafta',
-  month: 'Ay',
-  quarter: 'Çeyrek',
-  year: 'Yıl',
+  week: '7 gün',
+  month: '30 gün',
+  quarter: '90 gün',
+  year: '365 gün',
 };
 
 function StatCard({ label, value }: { label: string; value: string }) {
@@ -183,7 +196,7 @@ export function DashboardPage() {
   const queries = [summary, stats, performance, dailySummary, monthlySales];
   const hasError = queries.some((q) => q.isError);
 
-  const periodName = PERIOD_LABELS[period];
+  const days = PERIOD_DAYS[period];
 
   return (
     <main className="page">
@@ -245,7 +258,7 @@ export function DashboardPage() {
       <section className="section">
         <div className="row-between" style={{ marginBottom: 12 }}>
           <h2 className="section-title" style={{ marginBottom: 0 }}>
-            Bu {periodName} vs. Geçen {periodName}
+            Son {days} gün vs. önceki {days} gün
           </h2>
           <PeriodSelector value={period} onChange={setPeriod} />
         </div>
@@ -255,17 +268,18 @@ export function DashboardPage() {
             <div className="table-scroll">
               <table className="table">
                 <caption>
-                  Seçilen dönem ile bir önceki eşit uzunluktaki dönemin
-                  karşılaştırması.
+                  Bugün dahil son {days} gün, kendisinden önceki {days} günlük
+                  dönemle karşılaştırılır. Takvim ayı/yılı değil, kayan
+                  penceredir.
                 </caption>
                 <thead>
                   <tr>
                     <th scope="col">Ölçüt</th>
                     <th scope="col" className="num">
-                      Bu {periodName}
+                      Son {days} gün
                     </th>
                     <th scope="col" className="num">
-                      Geçen {periodName}
+                      Önceki {days} gün
                     </th>
                     <th scope="col" className="num">
                       Değişim

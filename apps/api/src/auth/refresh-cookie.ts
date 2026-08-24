@@ -18,7 +18,7 @@ export const REFRESH_COOKIE = 'hakmar_refresh';
  * cannot set cross-origin. Path scopes it to the auth routes so it is not
  * sent along with ordinary analytics traffic.
  */
-export function refreshCookieOptions(maxAgeMs: number): CookieOptions {
+function refreshCookieOptions(maxAgeMs: number): CookieOptions {
   return {
     httpOnly: true,
     // Secure must be off for plain-HTTP local development or the browser

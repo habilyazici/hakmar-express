@@ -125,7 +125,7 @@ export const BUCKET_LABELS: Record<string, { short: string; long: string }> = {
 };
 
 /** Metrics measured in lira, as opposed to counts of things. */
-export const MONEY_METRICS: readonly TrendMetric[] = ['sales', 'cost', 'profit'];
+const MONEY_METRICS: readonly TrendMetric[] = ['sales', 'cost', 'profit'];
 
 export function isMoneyMetric(metric: TrendMetric): boolean {
   return MONEY_METRICS.includes(metric);

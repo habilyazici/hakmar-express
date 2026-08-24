@@ -10,10 +10,12 @@ import {
   Patch,
   Post,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
 import { Role } from '../../generated/prisma/enums';
 import { PaginationQueryDto } from '../common/crud/pagination.dto';
 import { Roles } from '../common/decorators/roles.decorator';
+import { CacheInvalidationInterceptor } from '../common/interceptors/cache-invalidation.interceptor';
 import {
   BrandsService,
   CategoriesService,
@@ -35,6 +37,7 @@ const READ = [Role.SUPERADMIN, Role.ADMIN, Role.ANALYST] as const;
 const WRITE = [Role.SUPERADMIN, Role.ADMIN] as const;
 
 @Controller('catalog/categories')
+@UseInterceptors(CacheInvalidationInterceptor)
 export class CategoriesController {
   constructor(private readonly service: CategoriesService) {}
 
@@ -78,6 +81,7 @@ export class CategoriesController {
 }
 
 @Controller('catalog/subcategories')
+@UseInterceptors(CacheInvalidationInterceptor)
 export class SubcategoriesController {
   constructor(private readonly service: SubcategoriesService) {}
 
@@ -122,6 +126,7 @@ export class SubcategoriesController {
 
 /** Keyed by a string `code`, so no ParseIntPipe on the path parameter. */
 @Controller('catalog/brands')
+@UseInterceptors(CacheInvalidationInterceptor)
 export class BrandsController {
   constructor(private readonly service: BrandsService) {}
 
@@ -162,6 +167,7 @@ export class BrandsController {
 }
 
 @Controller('catalog/products')
+@UseInterceptors(CacheInvalidationInterceptor)
 export class ProductsController {
   constructor(private readonly service: ProductsService) {}
 

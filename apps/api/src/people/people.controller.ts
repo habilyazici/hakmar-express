@@ -10,10 +10,12 @@ import {
   Patch,
   Post,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
 import { Role } from '../../generated/prisma/enums';
 import { PaginationQueryDto } from '../common/crud/pagination.dto';
 import { Roles } from '../common/decorators/roles.decorator';
+import { CacheInvalidationInterceptor } from '../common/interceptors/cache-invalidation.interceptor';
 import {
   CreateCashierDto,
   CreateCustomerDto,
@@ -26,6 +28,7 @@ const READ = [Role.SUPERADMIN, Role.ADMIN, Role.ANALYST] as const;
 const WRITE = [Role.SUPERADMIN, Role.ADMIN] as const;
 
 @Controller('people/customers')
+@UseInterceptors(CacheInvalidationInterceptor)
 export class CustomersController {
   constructor(private readonly service: CustomersService) {}
 
@@ -72,6 +75,7 @@ export class CustomersController {
 }
 
 @Controller('people/cashiers')
+@UseInterceptors(CacheInvalidationInterceptor)
 export class CashiersController {
   constructor(private readonly service: CashiersService) {}
 

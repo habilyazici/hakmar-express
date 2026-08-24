@@ -256,7 +256,3 @@ export const RESOURCES: ResourceDef[] = [
     emptyHint: 'Önce bir şube oluşturun.',
   },
 ];
-
-export function findResource(key: string): ResourceDef | undefined {
-  return RESOURCES.find((r) => r.key === key);
-}

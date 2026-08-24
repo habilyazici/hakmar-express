@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { Role } from '../generated/prisma/enums';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { agent, createTestApp } from './support/test-app';
+import { agent, clearCache, createTestApp } from './support/test-app';
 
 const TEST_USERNAME = 'e2e-analyst';
 const TEST_PASSWORD = 'e2e-analyst-pass-123';
@@ -27,6 +27,11 @@ describe('Dashboard RBAC (e2e)', () => {
       },
     });
     userId = user.id;
+
+    // Fixtures went in through Prisma, so nothing invalidated the response
+    // cache; a stale analytics answer from another suite would otherwise
+    // hide the rows just created.
+    await clearCache(app);
   });
 
   afterAll(async () => {

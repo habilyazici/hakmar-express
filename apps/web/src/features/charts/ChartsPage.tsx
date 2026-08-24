@@ -15,6 +15,7 @@ import {
 import { QueryState } from '../../components/QueryState';
 import { compactCurrency, formatPeriod, integer, num } from '../../lib/format';
 import { useApiQuery } from '../../lib/query';
+import { useIsDark, useSeriesColors } from '../../lib/use-color-scheme';
 import { Heatmap } from './Heatmap';
 import {
   BUCKET_LABELS,
@@ -39,8 +40,6 @@ import {
   type TrendRow,
   type WaterfallStep,
 } from './types';
-
-const SERIES_COLORS = ['#0f766e', '#b45309', '#6d28d9', '#0369a1', '#be123c'];
 
 /**
  * Recharts types a tooltip value as `ValueType | undefined`, i.e. it may be a
@@ -100,6 +99,7 @@ function Select<T extends string>({
 }
 
 function TrendPanel() {
+  const SERIES_COLORS = useSeriesColors();
   const [granularity, setGranularity] = useState<Granularity>('month');
   const [metrics, setMetrics] = useState<TrendMetric[]>(['sales', 'profit']);
   const [cumulative, setCumulative] = useState(false);
@@ -238,6 +238,7 @@ function TrendPanel() {
 }
 
 function RankingPanel() {
+  const SERIES_COLORS = useSeriesColors();
   const [dimension, setDimension] = useState<RankingDimension>('branch');
   const [metric, setMetric] = useState<RankingMetric>('sales');
   const [order, setOrder] = useState<'desc' | 'asc'>('desc');
@@ -381,6 +382,7 @@ function BucketPanel({
   url: string;
   queryKey: string;
 }) {
+  const SERIES_COLORS = useSeriesColors();
   const query = useApiQuery<BucketRow[]>(['charts', queryKey], url);
 
   return (
@@ -417,6 +419,8 @@ function BucketPanel({
 }
 
 function WaterfallPanel() {
+  const SERIES_COLORS = useSeriesColors();
+  const NEGATIVE_FILL = useIsDark() ? '#f87171' : '#b91c1c';
   const query = useApiQuery<WaterfallStep[]>(
     ['charts', 'profit-waterfall'],
     '/charts/profit-waterfall',
@@ -457,7 +461,7 @@ function WaterfallPanel() {
                 {rows.map((row) => (
                   <Cell
                     key={row.step}
-                    fill={row.value < 0 ? '#b91c1c' : SERIES_COLORS[0]}
+                    fill={row.value < 0 ? NEGATIVE_FILL : SERIES_COLORS[0]}
                   />
                 ))}
               </Bar>

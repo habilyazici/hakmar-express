@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Role } from '../generated/prisma/enums';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { agent, createTestApp } from './support/test-app';
+import { agent, clearCache, createTestApp } from './support/test-app';
 
 const USERNAME = process.env.SEED_ADMIN_USERNAME ?? 'superadmin';
 const PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe123!';
@@ -63,6 +63,11 @@ describe('Master data (e2e)', () => {
       .send({ username: ANALYST_USERNAME, password: ANALYST_PASSWORD })
       .expect(200);
     analystToken = analystLogin.body.data.accessToken as string;
+
+    // Fixtures went in through Prisma, so nothing invalidated the response
+    // cache; a stale analytics answer from another suite would otherwise
+    // hide the rows just created.
+    await clearCache(app);
   });
 
   afterAll(async () => {

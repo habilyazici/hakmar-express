@@ -49,6 +49,19 @@ pnpm test:e2e    # e2e tests, needs postgres+redis running
 pnpm build
 ```
 
+The e2e suites run serially (`--runInBand`): they share one database, so they
+are not independent, and running them in parallel produced failures that
+looked random but were one suite reading another's half-finished state.
+
+To fill an empty database with a fictional retail history — 17 branches, 25
+products, ~2,500 receipts over 25 months, enough for every page to show
+something real:
+
+```bash
+pnpm --filter api seed:demo            # refuses if data already exists
+pnpm --filter api seed:demo -- --force # wipe and regenerate
+```
+
 ## API
 
 All routes are under `/api/v1` and require a bearer access token. RBAC is

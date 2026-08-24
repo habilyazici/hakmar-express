@@ -10,10 +10,12 @@ import {
   Patch,
   Post,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
 import { Role } from '../../generated/prisma/enums';
 import { PaginationQueryDto } from '../common/crud/pagination.dto';
 import { Roles } from '../common/decorators/roles.decorator';
+import { CacheInvalidationInterceptor } from '../common/interceptors/cache-invalidation.interceptor';
 import {
   CreateBranchDto,
   CreateCityDto,
@@ -34,6 +36,7 @@ const READ = [Role.SUPERADMIN, Role.ADMIN, Role.ANALYST] as const;
 const WRITE = [Role.SUPERADMIN, Role.ADMIN] as const;
 
 @Controller('geo/regions')
+@UseInterceptors(CacheInvalidationInterceptor)
 export class RegionsController {
   constructor(private readonly service: RegionsService) {}
 
@@ -76,6 +79,7 @@ export class RegionsController {
 }
 
 @Controller('geo/cities')
+@UseInterceptors(CacheInvalidationInterceptor)
 export class CitiesController {
   constructor(private readonly service: CitiesService) {}
 
@@ -116,6 +120,7 @@ export class CitiesController {
 }
 
 @Controller('geo/branches')
+@UseInterceptors(CacheInvalidationInterceptor)
 export class BranchesController {
   constructor(private readonly service: BranchesService) {}
 
