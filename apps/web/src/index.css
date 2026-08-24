@@ -114,6 +114,65 @@ p {
   outline-offset: 2px;
 }
 
+/* ---------- app shell ---------- */
+
+.shell__bar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 10px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.shell__brand {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.shell__nav {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+  flex: 1 1 auto;
+}
+
+.shell__link {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.shell__link:hover {
+  color: var(--text);
+  background: var(--bg);
+}
+
+.shell__link--active {
+  color: var(--accent-fg);
+  background: var(--accent);
+}
+
+.shell__link--active:hover {
+  color: var(--accent-fg);
+  background: var(--accent-hover);
+}
+
+.shell__user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 /* ---------- layout primitives ---------- */
 
 .page {
@@ -426,4 +485,151 @@ p {
     transition: none !important;
     animation: none !important;
   }
+}
+
+/* ---------- toolbars & controls ---------- */
+
+.toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.field--inline {
+  gap: 4px;
+}
+
+.field--inline > span,
+.field__label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.field__hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+select.input {
+  cursor: pointer;
+}
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 0.8125rem;
+}
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  padding-bottom: 8px;
+}
+
+.checkbox input {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.panel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+/* ---------- tags ---------- */
+
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.tag--good {
+  background: color-mix(in srgb, var(--positive) 16%, transparent);
+  color: var(--positive);
+  border-color: color-mix(in srgb, var(--positive) 35%, transparent);
+}
+
+.tag--warn {
+  background: color-mix(in srgb, #b45309 16%, transparent);
+  color: #b45309;
+  border-color: color-mix(in srgb, #b45309 35%, transparent);
+}
+
+.tag--bad {
+  background: color-mix(in srgb, var(--negative) 16%, transparent);
+  color: var(--negative);
+  border-color: color-mix(in srgb, var(--negative) 35%, transparent);
+}
+
+.tag--info {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.tag--muted {
+  background: var(--bg);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+/* ---------- heatmap ---------- */
+
+.heatmap {
+  font-size: 0.8125rem;
+}
+
+.heatmap th,
+.heatmap td {
+  padding: 6px 10px;
+}
+
+.heatmap__cell {
+  border-radius: 3px;
+  transition: none;
+}
+
+/* ---------- stat card delta ---------- */
+
+.stat-card__delta {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.75rem;
+}
+
+/* Recharts draws its grid with an inline stroke; the class lets the token win. */
+.chart-grid line {
+  stroke: var(--border);
+}
+
+.recharts-text {
+  fill: var(--text-muted);
+}
+
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: var(--surface-raised) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm);
+  color: var(--text);
 }

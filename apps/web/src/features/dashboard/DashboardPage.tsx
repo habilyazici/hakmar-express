@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useAuth } from '../auth/use-auth';
 import {
   useDailySummary,
   useGeneralStats,
@@ -175,7 +174,6 @@ function toMonthPoints(rows: MonthlySalesRow[] | undefined) {
 }
 
 export function DashboardPage() {
-  const { user, logout } = useAuth();
   const [period, setPeriod] = useState<Period>('month');
   const summary = useSummary();
   const stats = useGeneralStats();
@@ -191,14 +189,6 @@ export function DashboardPage() {
     <main className="page">
       <header className="page-header">
         <h1 className="page-title">Genel Bakış</h1>
-        <div className="row-between" style={{ gap: 12 }}>
-          <span className="user-chip">
-            {user?.username} ({user?.role})
-          </span>
-          <button className="btn" onClick={() => void logout()}>
-            Çıkış yap
-          </button>
-        </div>
       </header>
 
       {hasError && (
