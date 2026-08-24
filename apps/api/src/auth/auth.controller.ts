@@ -38,7 +38,12 @@ export class AuthController {
     return this.auth.refresh(dto.refreshToken);
   }
 
+  // Public because a client whose access token has already expired must
+  // still be able to revoke its refresh token. Throttled because without an
+  // explicit limit it inherited only the loose global one, leaving an
+  // unauthenticated endpoint that writes to the database wide open.
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   async logout(@Body() dto: RefreshDto) {

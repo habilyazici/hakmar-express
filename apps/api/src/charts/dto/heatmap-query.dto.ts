@@ -9,7 +9,7 @@ export enum HeatmapType {
 
 export class HeatmapQueryDto {
   @IsEnum(HeatmapType)
-  type: HeatmapType;
+  type!: HeatmapType;
 
   /** Ignored for region-category, which is always avg unit cost. */
   @IsOptional()

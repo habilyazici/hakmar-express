@@ -1,8 +1,15 @@
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
-import { Controller, Get, Param, UseInterceptors } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseEnumPipe,
+  UseInterceptors,
+} from '@nestjs/common';
 import { Role } from '../../generated/prisma/enums';
 import { Roles } from '../common/decorators/roles.decorator';
 import { DashboardService } from './dashboard.service';
+import { Period } from './dto/period.enum';
 
 @Controller('dashboard')
 @Roles(Role.SUPERADMIN, Role.ADMIN, Role.ANALYST)
@@ -24,7 +31,7 @@ export class DashboardController {
 
   @Get('performance/:period')
   @CacheTTL(5 * 60 * 1000)
-  getPerformance(@Param('period') period: string) {
+  getPerformance(@Param('period', new ParseEnumPipe(Period)) period: Period) {
     return this.dashboard.getPerformance(period);
   }
 

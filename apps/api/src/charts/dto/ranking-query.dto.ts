@@ -19,10 +19,10 @@ export enum RankingMetric {
 
 export class RankingQueryDto {
   @IsEnum(RankingDimension)
-  dimension: RankingDimension;
+  dimension!: RankingDimension;
 
   @IsEnum(RankingMetric)
-  metric: RankingMetric;
+  metric!: RankingMetric;
 
   @IsOptional()
   @Type(() => Number)

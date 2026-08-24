@@ -1,13 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
-
-const PERIOD_DAYS: Record<string, number> = {
-  week: 7,
-  month: 30,
-  quarter: 90,
-  year: 365,
-};
+import { PERIOD_DAYS, Period } from './dto/period.enum';
 
 @Injectable()
 export class DashboardService {
@@ -49,13 +43,12 @@ export class DashboardService {
     };
   }
 
-  async getPerformance(period: string) {
+  // Validity of `period` is enforced by ParseEnumPipe at the controller
+  // boundary (a 400, like every other bad parameter in this API), rather
+  // than by a string lookup here that raised a 404 for what is a malformed
+  // request, not a missing resource.
+  async getPerformance(period: Period) {
     const days = PERIOD_DAYS[period];
-    if (!days) {
-      throw new NotFoundException(
-        `Unknown period "${period}". Expected one of: ${Object.keys(PERIOD_DAYS).join(', ')}.`,
-      );
-    }
 
     // receiptDate is a DATE column (no time-of-day); Postgres compares it
     // against a timestamp by casting the date up to midnight. Anchoring on
@@ -121,7 +114,7 @@ export class DashboardService {
   }
 
   private async windowStats(start: Date, end: Date) {
-    const [itemTotals, orders, productGroups] = await Promise.all([
+    const [itemTotals, orders, distinctProducts] = await Promise.all([
       this.prisma.receiptItem.aggregate({
         where: { receipt: { receiptDate: { gte: start, lt: end } } },
         _sum: { totalPrice: true, totalMargin: true },
@@ -129,10 +122,11 @@ export class DashboardService {
       this.prisma.receipt.count({
         where: { receiptDate: { gte: start, lt: end } },
       }),
-      this.prisma.receiptItem.groupBy({
-        by: ['productId'],
-        where: { receipt: { receiptDate: { gte: start, lt: end } } },
-      }),
+      // groupBy(['productId']).length pulled one row per distinct product
+      // across the wire purely to read its array length; with a full catalog
+      // in the window that is thousands of rows discarded immediately.
+      // COUNT(DISTINCT ...) does it in the database and returns one number.
+      this.countDistinctProducts(start, end),
     ]);
 
     const sales = toNumber(itemTotals._sum.totalPrice);
@@ -143,8 +137,18 @@ export class DashboardService {
       profit,
       orders,
       avgBasket: orders > 0 ? sales / orders : 0,
-      distinctProducts: productGroups.length,
+      distinctProducts,
     };
+  }
+
+  private async countDistinctProducts(start: Date, end: Date): Promise<number> {
+    const [row] = await this.prisma.$queryRaw<{ count: number }[]>(Prisma.sql`
+      SELECT COUNT(DISTINCT ri.product_id)::int AS count
+      FROM receipt_items ri
+      JOIN receipts r ON r.id = ri.receipt_id
+      WHERE r.receipt_date >= ${start} AND r.receipt_date < ${end}
+    `);
+    return row?.count ?? 0;
   }
 }
 

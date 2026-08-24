@@ -19,6 +19,13 @@ const DURATION_UNIT_MS: Record<string, number> = {
   d: 86_400_000,
 };
 
+/**
+ * A real bcrypt hash (of a value nobody can log in with) so the
+ * no-such-user path spends the same time in bcrypt.compare as a real one.
+ */
+const DUMMY_PASSWORD_HASH =
+  '$2b$12$C6UzMDM.H6dfI/f/IKcEe.uFxvfxdOsuHVeDrxLSpwq9Kzt4KZaPy';
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -27,13 +34,24 @@ export class AuthService {
     private readonly config: ConfigService,
   ) {}
 
+  /**
+   * The bcrypt comparison runs even when no user matched, against a dummy
+   * hash. Returning early instead leaked account existence through response
+   * timing: a miss answered in ~1ms while a hit spent ~100ms in bcrypt, which
+   * is trivially measurable and turns the login endpoint into a username
+   * oracle. Both paths now cost the same.
+   */
   async validateUser(username: string, password: string) {
     const user = await this.prisma.adminUser.findFirst({
       where: { username, isActive: true },
     });
-    if (!user) return null;
-    const matches = await bcrypt.compare(password, user.passwordHash);
-    return matches ? user : null;
+
+    const matches = await bcrypt.compare(
+      password,
+      user?.passwordHash ?? DUMMY_PASSWORD_HASH,
+    );
+
+    return user && matches ? user : null;
   }
 
   async login(
@@ -157,7 +175,22 @@ export class AuthService {
       });
     }
 
+    await this.pruneExpiredTokens(userId);
+
     return { accessToken, refreshToken: refreshTokenPlain };
+  }
+
+  /**
+   * Every login and every refresh writes a row, and nothing ever removed
+   * them — the table grew without bound for the life of the deployment.
+   * Rows are only dropped once they are past their own expiry, so the
+   * reuse-detection path above can still recognise a replayed token for as
+   * long as that token could plausibly be presented.
+   */
+  private async pruneExpiredTokens(userId: number): Promise<void> {
+    await this.prisma.refreshToken.deleteMany({
+      where: { userId, expiresAt: { lt: new Date() } },
+    });
   }
 
   private hashToken(token: string): string {

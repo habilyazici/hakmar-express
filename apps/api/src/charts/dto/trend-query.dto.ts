@@ -30,7 +30,7 @@ const METRIC_VALUES = Object.values(TrendMetric);
 
 export class TrendQueryDto {
   @IsEnum(TrendGranularity)
-  granularity: TrendGranularity;
+  granularity!: TrendGranularity;
 
   @IsArray()
   @ArrayMinSize(1)
@@ -43,7 +43,7 @@ export class TrendQueryDto {
   @Transform(({ value }: { value: string | string[] }) =>
     Array.isArray(value) ? value : value.split(','),
   )
-  metrics: TrendMetric[];
+  metrics!: TrendMetric[];
 
   @IsOptional()
   @IsBoolean()

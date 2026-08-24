@@ -10,7 +10,7 @@ export enum TableEntity {
 
 export class TableRankingQueryDto {
   @IsEnum(TableEntity)
-  entity: TableEntity;
+  entity!: TableEntity;
 
   @IsOptional()
   @Type(() => Number)

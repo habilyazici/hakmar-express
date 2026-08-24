@@ -1,8 +1,8 @@
-import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { DashboardService } from './dashboard.service';
+import { Period } from './dto/period.enum';
 
 function decimal(value: number) {
   return new Prisma.Decimal(value);
@@ -11,17 +11,14 @@ function decimal(value: number) {
 describe('DashboardService', () => {
   let service: DashboardService;
   let prisma: {
-    receiptItem: {
-      aggregate: jest.Mock;
-      groupBy: jest.Mock;
-    };
+    receiptItem: { aggregate: jest.Mock };
     receipt: { count: jest.Mock };
     $queryRaw: jest.Mock;
   };
 
   beforeEach(async () => {
     prisma = {
-      receiptItem: { aggregate: jest.fn(), groupBy: jest.fn() },
+      receiptItem: { aggregate: jest.fn() },
       receipt: { count: jest.fn() },
       $queryRaw: jest.fn(),
     };
@@ -61,11 +58,36 @@ describe('DashboardService', () => {
   });
 
   describe('getPerformance', () => {
-    it('rejects an unknown period without hitting the database', async () => {
-      await expect(service.getPerformance('fortnight')).rejects.toThrow(
-        NotFoundException,
+    it.each([
+      [Period.WEEK, 7],
+      [Period.MONTH, 30],
+      [Period.QUARTER, 90],
+      [Period.YEAR, 365],
+    ])('sizes the %s window to %i days', async (period, days) => {
+      const ranges: { gte: Date; lt: Date }[] = [];
+      prisma.receiptItem.aggregate.mockImplementation(
+        ({
+          where,
+        }: {
+          where: { receipt: { receiptDate: { gte: Date; lt: Date } } };
+        }) => {
+          ranges.push(where.receipt.receiptDate);
+          return Promise.resolve({
+            _sum: { totalPrice: decimal(0), totalMargin: decimal(0) },
+          });
+        },
       );
-      expect(prisma.receiptItem.aggregate).not.toHaveBeenCalled();
+      prisma.receipt.count.mockResolvedValue(0);
+      prisma.$queryRaw.mockResolvedValue([{ count: 0 }]);
+
+      await service.getPerformance(period);
+
+      expect(ranges).toHaveLength(2);
+      for (const range of ranges) {
+        const spanDays =
+          (range.lt.getTime() - range.gte.getTime()) / 86_400_000;
+        expect(spanDays).toBe(days);
+      }
     });
 
     it('computes a positive % change when the current window beats the previous one', async () => {
@@ -97,12 +119,9 @@ describe('DashboardService', () => {
           where.receiptDate.gte > new Date(Date.now() - 40 * 86_400_000);
         return Promise.resolve(isCurrentWindow ? 10 : 5);
       });
-      prisma.receiptItem.groupBy.mockResolvedValue([
-        { productId: 1 },
-        { productId: 2 },
-      ]);
+      prisma.$queryRaw.mockResolvedValue([{ count: 2 }]);
 
-      const result = await service.getPerformance('month');
+      const result = await service.getPerformance(Period.MONTH);
 
       expect(result.current.sales).toBe(200);
       expect(result.previous.sales).toBe(100);
@@ -117,9 +136,9 @@ describe('DashboardService', () => {
         _sum: { totalPrice: decimal(0), totalMargin: decimal(0) },
       });
       prisma.receipt.count.mockResolvedValue(0);
-      prisma.receiptItem.groupBy.mockResolvedValue([]);
+      prisma.$queryRaw.mockResolvedValue([{ count: 0 }]);
 
-      const result = await service.getPerformance('week');
+      const result = await service.getPerformance(Period.WEEK);
 
       expect(result.changePct.sales).toBeNull();
       expect(result.changePct.orders).toBeNull();
@@ -147,9 +166,9 @@ describe('DashboardService', () => {
         },
       );
       prisma.receipt.count.mockResolvedValue(0);
-      prisma.receiptItem.groupBy.mockResolvedValue([]);
+      prisma.$queryRaw.mockResolvedValue([{ count: 0 }]);
 
-      await service.getPerformance('week');
+      await service.getPerformance(Period.WEEK);
 
       expect(boundaries.length).toBeGreaterThan(0);
       for (const boundary of boundaries) {

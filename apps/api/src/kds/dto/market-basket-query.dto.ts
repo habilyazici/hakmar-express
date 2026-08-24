@@ -4,7 +4,7 @@ import { IsInt, IsOptional, Max, Min } from 'class-validator';
 export class MarketBasketQueryDto {
   @Type(() => Number)
   @IsInt()
-  productId: number;
+  productId!: number;
 
   @IsOptional()
   @Type(() => Number)
