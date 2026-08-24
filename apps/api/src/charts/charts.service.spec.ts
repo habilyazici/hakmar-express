@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ChartsService } from './charts.service';
+import { HeatmapType } from './dto/heatmap-query.dto';
 import { RankingDimension, RankingMetric } from './dto/ranking-query.dto';
 import { TrendGranularity, TrendMetric } from './dto/trend-query.dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -83,6 +84,34 @@ describe('ChartsService', () => {
 
       expect(result).toEqual([{ id: 1, name: 'Kadıköy', value: '5000' }]);
       expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('getHeatmap', () => {
+    it.each([
+      [HeatmapType.WEEKDAY_HOUR, 'r.receipt_time'],
+      [HeatmapType.YEAR_MONTH, 'r.receipt_date'],
+      [HeatmapType.REGION_CATEGORY, 'product_costs'],
+    ])('routes %s to a query mentioning %s', async (type, expectedFragment) => {
+      prisma.$queryRaw.mockResolvedValue([]);
+
+      await service.getHeatmap(type, TrendMetric.SALES);
+
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+      const calls = prisma.$queryRaw.mock.calls as unknown[][];
+      const query = calls[0][0] as { sql: string };
+      expect(query.sql).toContain(expectedFragment);
+    });
+
+    it('passes rows through unchanged', async () => {
+      prisma.$queryRaw.mockResolvedValue([{ x: 1, y: 2, value: '10' }]);
+
+      const result = await service.getHeatmap(
+        HeatmapType.WEEKDAY_HOUR,
+        TrendMetric.SALES,
+      );
+
+      expect(result).toEqual([{ x: 1, y: 2, value: '10' }]);
     });
   });
 });

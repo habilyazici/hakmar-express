@@ -224,4 +224,45 @@ describe('Charts (e2e)', () => {
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
   });
+
+  it('buckets sales by weekday x hour (2026-01-01 is a Thursday, 2026-01-02 a Friday)', async () => {
+    const res = await agent(app)
+      .get('/api/v1/charts/heatmap')
+      .query({ type: 'weekday-hour', metric: 'sales' })
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const rows = res.body.data as { x: number; y: number; value: string }[];
+    const thursday10am = rows.find((r) => r.x === 4 && r.y === 10);
+    const friday2pm = rows.find((r) => r.x === 5 && r.y === 14);
+    expect(Number(thursday10am!.value)).toBe(200);
+    expect(Number(friday2pm!.value)).toBe(300);
+  });
+
+  it('aggregates sales by year x month across both receipts', async () => {
+    const res = await agent(app)
+      .get('/api/v1/charts/heatmap')
+      .query({ type: 'year-month', metric: 'sales' })
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const rows = res.body.data as { x: number; y: number; value: string }[];
+    const jan2026 = rows.find((r) => r.x === 2026 && r.y === 1);
+    expect(Number(jan2026!.value)).toBe(500);
+  });
+
+  it('computes avg unit cost by region x category from product_costs', async () => {
+    const res = await agent(app)
+      .get('/api/v1/charts/heatmap')
+      .query({ type: 'region-category' })
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const rows = res.body.data as { x: string; y: string; value: string }[];
+    const ours = rows.find(
+      (r) => r.x === 'E2E Region' && r.y === 'E2E Category',
+    );
+    expect(ours).toBeDefined();
+    expect(Number(ours!.value)).toBe(60);
+  });
 });

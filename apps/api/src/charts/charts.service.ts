@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { HeatmapType } from './dto/heatmap-query.dto';
 import { RankingDimension, RankingMetric } from './dto/ranking-query.dto';
 import { TrendGranularity, TrendMetric } from './dto/trend-query.dto';
 
@@ -95,6 +96,12 @@ export interface RankingRow {
   value: string;
 }
 
+export interface HeatmapRow {
+  x: string | number;
+  y: string | number;
+  value: string | number;
+}
+
 @Injectable()
 export class ChartsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -154,6 +161,69 @@ export class ChartsService {
       GROUP BY ${idExpr}, ${nameExpr}
       ORDER BY value ${orderSql}
       LIMIT ${limit}
+    `);
+  }
+
+  /**
+   * Replaces 3 legacy heatmap endpoints (daily-hourly-sales-heatmap,
+   * monthly-daily-sales-heatmap, region-product-cost-heatmap). These three
+   * axis pairings are genuinely distinct — not a copy-paste family like the
+   * trend/ranking endpoints were — so this stays three explicit modes
+   * behind one route rather than a free-form xAxis/yAxis combinator that
+   * would allow nonsensical pairings (e.g. weekday × weekday).
+   */
+  async getHeatmap(
+    type: HeatmapType,
+    metric: TrendMetric,
+  ): Promise<HeatmapRow[]> {
+    switch (type) {
+      case HeatmapType.WEEKDAY_HOUR:
+        return this.weekdayHourHeatmap(metric);
+      case HeatmapType.YEAR_MONTH:
+        return this.yearMonthHeatmap(metric);
+      case HeatmapType.REGION_CATEGORY:
+        return this.regionCategoryHeatmap();
+    }
+  }
+
+  private weekdayHourHeatmap(metric: TrendMetric): Promise<HeatmapRow[]> {
+    const metricExpr = TREND_METRIC_EXPR[metric];
+    return this.prisma.$queryRaw<HeatmapRow[]>(Prisma.sql`
+      SELECT EXTRACT(ISODOW FROM r.receipt_date)::int AS x,
+             EXTRACT(HOUR FROM r.receipt_time)::int AS y,
+             ${metricExpr} AS value
+      FROM receipts r
+      JOIN receipt_items ri ON ri.receipt_id = r.id
+      GROUP BY x, y
+      ORDER BY x, y
+    `);
+  }
+
+  private yearMonthHeatmap(metric: TrendMetric): Promise<HeatmapRow[]> {
+    const metricExpr = TREND_METRIC_EXPR[metric];
+    return this.prisma.$queryRaw<HeatmapRow[]>(Prisma.sql`
+      SELECT EXTRACT(YEAR FROM r.receipt_date)::int AS x,
+             EXTRACT(MONTH FROM r.receipt_date)::int AS y,
+             ${metricExpr} AS value
+      FROM receipts r
+      JOIN receipt_items ri ON ri.receipt_id = r.id
+      GROUP BY x, y
+      ORDER BY x, y
+    `);
+  }
+
+  private regionCategoryHeatmap(): Promise<HeatmapRow[]> {
+    return this.prisma.$queryRaw<HeatmapRow[]>(Prisma.sql`
+      SELECT reg.name AS x,
+             cat.name AS y,
+             COALESCE(AVG(pc.unit_cost), 0) AS value
+      FROM product_costs pc
+      JOIN regions reg ON reg.id = pc.region_id
+      JOIN products p ON p.id = pc.product_id
+      JOIN subcategories sc ON sc.id = p.subcategory_id
+      JOIN categories cat ON cat.id = sc.category_id
+      GROUP BY reg.name, cat.name
+      ORDER BY reg.name, cat.name
     `);
   }
 

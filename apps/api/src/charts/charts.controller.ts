@@ -3,8 +3,9 @@ import { Controller, Get, Query, UseInterceptors } from '@nestjs/common';
 import { Role } from '../../generated/prisma/enums';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ChartsService } from './charts.service';
+import { HeatmapQueryDto } from './dto/heatmap-query.dto';
 import { RankingQueryDto } from './dto/ranking-query.dto';
-import { TrendQueryDto } from './dto/trend-query.dto';
+import { TrendMetric, TrendQueryDto } from './dto/trend-query.dto';
 
 @Controller('charts')
 @Roles(Role.SUPERADMIN, Role.ADMIN, Role.ANALYST)
@@ -30,6 +31,15 @@ export class ChartsController {
       query.metric,
       query.limit ?? 10,
       query.order ?? 'desc',
+    );
+  }
+
+  @Get('heatmap')
+  @CacheTTL(10 * 60 * 1000)
+  getHeatmap(@Query() query: HeatmapQueryDto) {
+    return this.charts.getHeatmap(
+      query.type,
+      query.metric ?? TrendMetric.SALES,
     );
   }
 }
