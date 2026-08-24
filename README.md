@@ -28,8 +28,12 @@ pnpm --filter api exec prisma db seed         # creates the first superadmin
 pnpm dev                                      # api on :3000, web on :5173
 ```
 
-Default seeded login: `superadmin` / `ChangeMe123!` (change immediately —
-this is a dev-only default, see `apps/api/.env`).
+The seed creates the first superadmin from `SEED_ADMIN_USERNAME` and
+`SEED_ADMIN_PASSWORD` in `apps/api/.env`. Copied straight from
+`.env.example` those are `superadmin` / `ChangeMe123!` — a dev-only default
+to change immediately. Changing the values and re-running the seed does not
+reset an existing account: the upsert leaves it alone, so change the password
+through the app or delete the row first.
 
 `JWT_ACCESS_SECRET` must be at least 32 characters; the app validates its
 whole environment at startup and refuses to boot otherwise, naming the
