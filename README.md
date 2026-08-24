@@ -58,6 +58,7 @@ so a new endpoint cannot be left unguarded by omission.
 | Charts | `GET /charts/trend`, `/ranking`, `/heatmap`, `/basket-size`, `/profit-waterfall`, `/customer-loyalty`, `/geographic-sales` |
 | Tables | `GET /tables/ranking`, `/price-cost-history`, `/region-cost` |
 | KDS | `GET /kds/abc-analysis`, `/demand-forecast`, `/customer-segmentation`, `/market-basket` |
+| Spatial forecast | `POST /spatial-forecast/run`, `GET /spatial-forecast/runs`, `/runs/:id` |
 
 The Charts and Tables routes replace ~51 near-identical legacy endpoints with
 parameterized ones. Every parameter that reaches SQL is validated against an
@@ -69,13 +70,24 @@ enum first and then used only as a key into a lookup table of pre-written
 Shipped: the cross-cutting NestJS architecture (guards/interceptors/filters,
 validated environment, Redis cache), Prisma schema + migrations, auth with
 rotating refresh tokens and reuse detection, and the Dashboard, Charts,
-Tables and KDS Analytics modules with unit and e2e coverage on CI.
+Tables, KDS Analytics and Spatial Forecast modules with unit and e2e
+coverage on CI.
+
+Spatial Forecast fits one ordinary-least-squares model per city (or
+region) over that area's own monthly history, using a linear trend plus
+two Fourier harmonics for seasonality, and layers discount / cost /
+purchasing-power scenarios on top. Areas with too little history fall
+back to their mean and are labelled as such rather than presented as
+fitted. Every run is recorded in `spatial_forecast_runs`.
 
 Web currently exposes the Dashboard Overview page; the Charts/Tables/KDS
 endpoints are API-only so far.
 
-Not yet started: Spatial Forecast (the OLS regression engine and GeoJSON
-map), catalog/geo/customer master-data management, and transaction listing.
+Not yet started: the Leaflet choropleth for Spatial Forecast (its GeoJSON
+boundary file was never in the legacy repo, only a loader pointing at a
+missing `tr-cities.json`, so that data has to be sourced first — the API
+already returns plate codes and region ids for it), catalog/geo/customer
+master-data management, and transaction listing.
 
 Decisions carried from the audit: Postgres over MySQL, Redis over the legacy
 ad-hoc cache, Prisma over Sequelize, the raw-SQL admin tool dropped in favor
