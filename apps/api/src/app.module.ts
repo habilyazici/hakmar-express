@@ -11,6 +11,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { KdsModule } from './kds/kds.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { TablesModule } from './tables/tables.module';
 
@@ -24,6 +25,7 @@ import { TablesModule } from './tables/tables.module';
     DashboardModule,
     ChartsModule,
     TablesModule,
+    KdsModule,
   ],
   controllers: [AppController],
   providers: [
