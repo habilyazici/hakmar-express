@@ -1,4 +1,5 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import type { Application } from 'express';
 import helmet from 'helmet';
 
 /**
@@ -7,6 +8,23 @@ import helmet from 'helmet';
  * hand-approximated subset of it.
  */
 export function setupApp(app: INestApplication): INestApplication {
+  // Off by default (Express's own default) so a client can't spoof
+  // X-Forwarded-For to dodge the per-IP login throttle when there's no
+  // actual proxy in front. Set TRUST_PROXY to the number of proxy hops
+  // (e.g. "1" for a single nginx/ALB in front) once this is actually
+  // deployed behind one — without it, every request behind any proxy
+  // arrives from that proxy's one IP, collapsing ThrottlerGuard's per-IP
+  // login limit into a single shared bucket for all users.
+  const trustProxy = process.env.TRUST_PROXY;
+  if (trustProxy) {
+    const parsed = Number(trustProxy);
+    const expressInstance = app.getHttpAdapter().getInstance() as Application;
+    expressInstance.set(
+      'trust proxy',
+      Number.isNaN(parsed) ? trustProxy : parsed,
+    );
+  }
+
   app.use(helmet());
   app.enableCors({
     origin: process.env.WEB_ORIGIN ?? 'http://localhost:5173',

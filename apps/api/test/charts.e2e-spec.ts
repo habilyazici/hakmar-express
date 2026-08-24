@@ -225,6 +225,27 @@ describe('Charts (e2e)', () => {
     expect(res.body.success).toBe(false);
   });
 
+  it('accepts metrics sent as repeated query keys, not just CSV', async () => {
+    // axios's default array serialization for `params: { metrics: [...] }`
+    // sends ?metrics=sales&metrics=profit (a real array once Express/qs
+    // parses it), not the CSV string our own frontend happens to send.
+    const res = await agent(app)
+      .get('/api/v1/charts/trend')
+      .query({ granularity: 'day', metrics: ['sales', 'profit'] })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    const rows = res.body.data as {
+      period: string;
+      sales: string;
+      profit: string;
+    }[];
+    const jan1 = rows.find((r) => r.period.startsWith('2026-01-01'));
+    expect(jan1).toBeDefined();
+    expect(Number(jan1!.sales)).toBe(200);
+    expect(Number(jan1!.profit)).toBe(80);
+  });
+
   it('buckets sales by weekday x hour (2026-01-01 is a Thursday, 2026-01-02 a Friday)', async () => {
     const res = await agent(app)
       .get('/api/v1/charts/heatmap')

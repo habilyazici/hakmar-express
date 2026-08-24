@@ -57,12 +57,20 @@ export class DashboardService {
       );
     }
 
-    const now = new Date();
-    const currentStart = new Date(now.getTime() - days * 86_400_000);
-    const previousStart = new Date(now.getTime() - 2 * days * 86_400_000);
+    // receiptDate is a DATE column (no time-of-day); Postgres compares it
+    // against a timestamp by casting the date up to midnight. Anchoring on
+    // the current wall-clock time (rather than the start of tomorrow) left
+    // boundary values with a non-midnight time-of-day, so a receipt dated
+    // "today" failed `>= currentStart` (00:00 < now's time) and leaked into
+    // the "previous" bucket's `< currentStart` upper bound instead.
+    const tomorrow = new Date();
+    tomorrow.setUTCHours(0, 0, 0, 0);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    const currentStart = new Date(tomorrow.getTime() - days * 86_400_000);
+    const previousStart = new Date(tomorrow.getTime() - 2 * days * 86_400_000);
 
     const [current, previous] = await Promise.all([
-      this.windowStats(currentStart, now),
+      this.windowStats(currentStart, tomorrow),
       this.windowStats(previousStart, currentStart),
     ]);
 

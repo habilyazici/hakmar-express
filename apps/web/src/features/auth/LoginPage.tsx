@@ -1,6 +1,19 @@
+import { isAxiosError } from 'axios';
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './auth-context';
+
+function loginErrorMessage(err: unknown): string {
+  if (isAxiosError(err)) {
+    if (err.response?.status === 429) {
+      return 'Çok fazla deneme yapıldı. Lütfen bir dakika sonra tekrar deneyin.';
+    }
+    if (err.response?.status === 401) {
+      return 'Kullanıcı adı veya şifre hatalı.';
+    }
+  }
+  return 'Bir şeyler ters gitti. Lütfen daha sonra tekrar deneyin.';
+}
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -17,8 +30,8 @@ export function LoginPage() {
     try {
       await login(username, password);
       navigate('/dashboard', { replace: true });
-    } catch {
-      setError('Kullanıcı adı veya şifre hatalı.');
+    } catch (err) {
+      setError(loginErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }

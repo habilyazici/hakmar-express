@@ -10,6 +10,7 @@ import {
   apiClient,
   registerUnauthorizedHandler,
   setAccessToken,
+  type ApiEnvelope,
 } from '../../lib/api-client';
 import { decodeAccessToken } from './jwt';
 import type { AuthUser, LoginResponse, RefreshResponse } from './types';
@@ -27,7 +28,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 async function refreshWithToken(refreshToken: string): Promise<string | null> {
   try {
-    const res = await apiClient.post<{ success: true; data: RefreshResponse }>(
+    const res = await apiClient.post<ApiEnvelope<RefreshResponse>>(
       '/auth/refresh',
       { refreshToken },
     );
@@ -42,32 +43,49 @@ async function refreshWithToken(refreshToken: string): Promise<string | null> {
   }
 }
 
+/**
+ * The backend rotates the refresh token on every use and treats a second
+ * presentation of an already-rotated token as theft (revoking the whole
+ * session). Without de-duplication here, N components 401-ing at once (e.g.
+ * DashboardPage's 5 parallel queries after the access token expires) would
+ * each call refreshWithToken independently with the same stored token —
+ * the first call to land wins, and every sibling gets treated as a replay
+ * attack and logs the user out. All concurrent callers now share one
+ * in-flight refresh instead.
+ */
+let inFlightRefresh: Promise<string | null> | null = null;
+function refreshOnce(): Promise<string | null> {
+  if (inFlightRefresh) return inFlightRefresh;
+  const stored = sessionStorage.getItem(REFRESH_TOKEN_KEY);
+  if (!stored) return Promise.resolve(null);
+  inFlightRefresh = refreshWithToken(stored).finally(() => {
+    inFlightRefresh = null;
+  });
+  return inFlightRefresh;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     registerUnauthorizedHandler(async () => {
-      const stored = sessionStorage.getItem(REFRESH_TOKEN_KEY);
-      if (!stored) return null;
-      const token = await refreshWithToken(stored);
-      if (token) setUser(decodeAccessToken(token));
-      else setUser(null);
+      const token = await refreshOnce();
+      setUser(token ? decodeAccessToken(token) : null);
       return token;
     });
 
-    const stored = sessionStorage.getItem(REFRESH_TOKEN_KEY);
-    if (!stored) {
+    if (!sessionStorage.getItem(REFRESH_TOKEN_KEY)) {
       setIsLoading(false);
       return;
     }
-    refreshWithToken(stored)
+    refreshOnce()
       .then((token) => setUser(token ? decodeAccessToken(token) : null))
       .finally(() => setIsLoading(false));
   }, []);
 
   const login = useCallback(async (username: string, password: string) => {
-    const res = await apiClient.post<{ success: true; data: LoginResponse }>(
+    const res = await apiClient.post<ApiEnvelope<LoginResponse>>(
       '/auth/login',
       { username, password },
     );

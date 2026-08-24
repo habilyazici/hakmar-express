@@ -35,7 +35,14 @@ export class TrendQueryDto {
   @IsArray()
   @ArrayMinSize(1)
   @IsIn(METRIC_VALUES, { each: true })
-  @Transform(({ value }: { value: string }) => value.split(','))
+  // Accepts both ?metrics=sales,profit (CSV, what our own frontend sends)
+  // and ?metrics=sales&metrics=profit (axios's default array serialization,
+  // and the more natural way to call this from `params: { metrics: [...] }`)
+  // — qs/Express already parses the latter into a real array, so splitting
+  // on ',' unconditionally crashed with a 500 instead of a clean 400.
+  @Transform(({ value }: { value: string | string[] }) =>
+    Array.isArray(value) ? value : value.split(','),
+  )
   metrics: TrendMetric[];
 
   @IsOptional()

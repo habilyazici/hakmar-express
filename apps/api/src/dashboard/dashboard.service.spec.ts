@@ -124,5 +124,49 @@ describe('DashboardService', () => {
       expect(result.changePct.sales).toBeNull();
       expect(result.changePct.orders).toBeNull();
     });
+
+    it('anchors window boundaries on exact UTC midnight, not the current time-of-day', async () => {
+      // receiptDate is a DATE column; Postgres compares it against a
+      // timestamp by casting the date to midnight. A boundary that isn't
+      // itself exact midnight silently miscounts "today"'s receipts into
+      // the wrong window (see the comment in dashboard.service.ts).
+      const boundaries: Date[] = [];
+      prisma.receiptItem.aggregate.mockImplementation(
+        ({
+          where,
+        }: {
+          where: { receipt: { receiptDate: { gte: Date; lt: Date } } };
+        }) => {
+          boundaries.push(
+            where.receipt.receiptDate.gte,
+            where.receipt.receiptDate.lt,
+          );
+          return Promise.resolve({
+            _sum: { totalPrice: decimal(0), totalMargin: decimal(0) },
+          });
+        },
+      );
+      prisma.receipt.count.mockResolvedValue(0);
+      prisma.receiptItem.groupBy.mockResolvedValue([]);
+
+      await service.getPerformance('week');
+
+      expect(boundaries.length).toBeGreaterThan(0);
+      for (const boundary of boundaries) {
+        expect(boundary.getUTCHours()).toBe(0);
+        expect(boundary.getUTCMinutes()).toBe(0);
+        expect(boundary.getUTCSeconds()).toBe(0);
+        expect(boundary.getUTCMilliseconds()).toBe(0);
+      }
+
+      // The current window's upper bound must be the start of *tomorrow*
+      // (covering all of today), not `now` mid-day.
+      const upperBounds = boundaries.filter((_, i) => i % 2 === 1);
+      const latestUpperBound = upperBounds.reduce((a, b) => (a > b ? a : b));
+      const startOfTomorrow = new Date();
+      startOfTomorrow.setUTCHours(0, 0, 0, 0);
+      startOfTomorrow.setUTCDate(startOfTomorrow.getUTCDate() + 1);
+      expect(latestUpperBound.getTime()).toBe(startOfTomorrow.getTime());
+    });
   });
 });

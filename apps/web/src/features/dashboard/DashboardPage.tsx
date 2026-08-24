@@ -69,6 +69,8 @@ export function DashboardPage() {
   const performance = usePerformance(period);
   const dailySummary = useDailySummary();
   const monthlySales = useMonthlySales();
+  const queries = [summary, stats, performance, dailySummary, monthlySales];
+  const hasError = queries.some((q) => q.isError);
 
   return (
     <main style={{ padding: 24, maxWidth: 960, margin: '0 auto' }}>
@@ -88,6 +90,30 @@ export function DashboardPage() {
           <button onClick={() => logout()}>Çıkış yap</button>
         </div>
       </header>
+
+      {hasError && (
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '10px 14px',
+            marginBottom: 20,
+            background: '#fdecea',
+            border: '1px solid #f3b4ac',
+            borderRadius: 6,
+          }}
+        >
+          <span style={{ fontSize: 14, color: '#7a1f14' }}>
+            Bazı veriler yüklenemedi.
+          </span>
+          <button
+            onClick={() => queries.forEach((q) => q.isError && q.refetch())}
+          >
+            Tekrar dene
+          </button>
+        </div>
+      )}
 
       <section
         style={{
