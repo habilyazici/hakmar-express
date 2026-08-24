@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../features/auth/use-auth';
+import { ThemeToggle } from './ThemeToggle';
 
 const NAV = [
   { to: '/dashboard', label: 'Genel Bakış' },
@@ -33,6 +34,7 @@ export function AppShell() {
           ))}
         </nav>
         <div className="shell__user">
+          <ThemeToggle />
           <span className="user-chip">
             {user?.username} ({user?.role})
           </span>

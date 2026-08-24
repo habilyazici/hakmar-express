@@ -10,41 +10,45 @@
  * mode the page went near-black while card labels stayed #666 (about 2.2:1
  * contrast, well under the 4.5:1 minimum) and buttons stayed solid white.
  *
- * Every colour below is defined once on :root and only ever re-pointed in
- * the dark block, so a component can never pick up a value that exists in
- * one theme and not the other.
+ * Every colour below is declared exactly once, as light-dark(light, dark),
+ * so a value cannot exist in one theme and not the other — the pair is the
+ * declaration. Which half applies is decided by the used color-scheme, so
+ * the theme switch only has to re-point that one property, and native UI
+ * (scrollbars, select popups, form controls) follows the choice with it.
  */
 
 :root {
-  --bg: #f6f7f9;
-  --surface: #ffffff;
-  --surface-raised: #ffffff;
-  --text: #14181d;
-  --text-muted: #5b6672;
-  --border: #dfe3e8;
-  --border-strong: #c6ccd4;
+  /* No data-theme attribute: follow the OS. The two rules below pin it. */
+  color-scheme: light dark;
 
-  --accent: #0f766e;
-  --accent-hover: #115e56;
-  --accent-fg: #ffffff;
-  --focus: #0f766e;
+  --bg: light-dark(#f6f7f9, #121519);
+  --surface: light-dark(#ffffff, #1a1e24);
+  --surface-raised: light-dark(#ffffff, #21262d);
+  --text: light-dark(#14181d, #e7eaee);
+  --text-muted: light-dark(#5b6672, #9aa4b0);
+  --border: light-dark(#dfe3e8, #2b313a);
+  --border-strong: light-dark(#c6ccd4, #3b434e);
 
-  --danger-bg: #fdecea;
-  --danger-border: #f2b8b0;
-  --danger-text: #8c2318;
+  --accent: light-dark(#0f766e, #14b8a6);
+  --accent-hover: light-dark(#115e56, #2dd4bf);
+  --accent-fg: light-dark(#ffffff, #06231f);
+  --focus: light-dark(#0f766e, #2dd4bf);
 
-  --positive: #15803d;
-  --negative: #b91c1c;
+  --danger-bg: light-dark(#fdecea, #3b1a16);
+  --danger-border: light-dark(#f2b8b0, #7a2f26);
+  --danger-text: light-dark(#8c2318, #f8b7ad);
+
+  --positive: light-dark(#15803d, #4ade80);
+  --negative: light-dark(#b91c1c, #f87171);
 
   --radius: 8px;
   --radius-sm: 6px;
-  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
-  --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08);
+  --shadow-sm: 0 1px 2px light-dark(rgba(16, 24, 40, 0.06), rgba(0, 0, 0, 0.4));
+  --shadow-md: 0 4px 12px light-dark(rgba(16, 24, 40, 0.08), rgba(0, 0, 0, 0.45));
 
   --sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
     sans-serif;
 
-  color-scheme: light dark;
   font-family: var(--sans);
   font-size: 16px;
   line-height: 1.5;
@@ -54,31 +58,17 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #121519;
-    --surface: #1a1e24;
-    --surface-raised: #21262d;
-    --text: #e7eaee;
-    --text-muted: #9aa4b0;
-    --border: #2b313a;
-    --border-strong: #3b434e;
+/*
+ * The viewer's explicit choice, written by the theme switch as a data-theme
+ * attribute on <html>. Pinning color-scheme is the whole override: every
+ * light-dark() above re-resolves through inheritance.
+ */
+:root[data-theme='light'] {
+  color-scheme: light;
+}
 
-    --accent: #14b8a6;
-    --accent-hover: #2dd4bf;
-    --accent-fg: #06231f;
-    --focus: #2dd4bf;
-
-    --danger-bg: #3b1a16;
-    --danger-border: #7a2f26;
-    --danger-text: #f8b7ad;
-
-    --positive: #4ade80;
-    --negative: #f87171;
-
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
-  }
+:root[data-theme='dark'] {
+  color-scheme: dark;
 }
 
 * {

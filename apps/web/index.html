@@ -5,6 +5,18 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
+    <script>
+      // Runs before the stylesheet so a pinned theme is right on the first
+      // paint; without it a viewer who chose light on a dark OS gets a dark
+      // flash before React mounts. Kept inline and tiny for that reason.
+      try {
+        var t = localStorage.getItem('hakmar.theme');
+        if (t === 'light' || t === 'dark')
+          document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {
+        /* storage blocked: fall back to following the OS */
+      }
+    </script>
     <title>Hakmar Express — Yönetim Paneli</title>
   </head>
   <body>
