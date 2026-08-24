@@ -24,25 +24,18 @@ export class DashboardService {
   }
 
   async getGeneralStats() {
-    const [
-      branches,
-      customers,
-      products,
-      brands,
-      receipts,
-      cashiers,
-      totals,
-    ] = await Promise.all([
-      this.prisma.branch.count(),
-      this.prisma.customer.count(),
-      this.prisma.product.count(),
-      this.prisma.brand.count(),
-      this.prisma.receipt.count(),
-      this.prisma.cashier.count(),
-      this.prisma.receiptItem.aggregate({
-        _sum: { totalPrice: true, totalMargin: true },
-      }),
-    ]);
+    const [branches, customers, products, brands, receipts, cashiers, totals] =
+      await Promise.all([
+        this.prisma.branch.count(),
+        this.prisma.customer.count(),
+        this.prisma.product.count(),
+        this.prisma.brand.count(),
+        this.prisma.receipt.count(),
+        this.prisma.cashier.count(),
+        this.prisma.receiptItem.aggregate({
+          _sum: { totalPrice: true, totalMargin: true },
+        }),
+      ]);
 
     return {
       branches,

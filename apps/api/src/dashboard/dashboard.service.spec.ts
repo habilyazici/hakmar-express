@@ -72,18 +72,27 @@ describe('DashboardService', () => {
       // Distinguish "current" vs "previous" window by which date range each
       // call was filtered on, not by call order — the two windows are
       // computed concurrently via Promise.all in the service.
-      prisma.receiptItem.aggregate.mockImplementation(({ where }) => {
-        const isCurrentWindow =
-          where.receipt.receiptDate.gte >
-          new Date(Date.now() - 40 * 86_400_000);
-        return Promise.resolve({
-          _sum: {
-            totalPrice: decimal(isCurrentWindow ? 200 : 100),
-            totalMargin: decimal(isCurrentWindow ? 40 : 20),
-          },
-        });
-      });
-      prisma.receipt.count.mockImplementation(({ where }) => {
+      interface AggregateArgs {
+        where: { receipt: { receiptDate: { gte: Date } } };
+      }
+      interface CountArgs {
+        where: { receiptDate: { gte: Date } };
+      }
+
+      prisma.receiptItem.aggregate.mockImplementation(
+        ({ where }: AggregateArgs) => {
+          const isCurrentWindow =
+            where.receipt.receiptDate.gte >
+            new Date(Date.now() - 40 * 86_400_000);
+          return Promise.resolve({
+            _sum: {
+              totalPrice: decimal(isCurrentWindow ? 200 : 100),
+              totalMargin: decimal(isCurrentWindow ? 40 : 20),
+            },
+          });
+        },
+      );
+      prisma.receipt.count.mockImplementation(({ where }: CountArgs) => {
         const isCurrentWindow =
           where.receiptDate.gte > new Date(Date.now() - 40 * 86_400_000);
         return Promise.resolve(isCurrentWindow ? 10 : 5);

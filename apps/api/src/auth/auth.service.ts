@@ -50,11 +50,7 @@ export class AuthService {
       data: { lastLogin: new Date() },
     });
 
-    const tokens = await this.issueTokenPair(
-      user.id,
-      user.username,
-      user.role,
-    );
+    const tokens = await this.issueTokenPair(user.id, user.username, user.role);
     return {
       ...tokens,
       user: { sub: user.id, username: user.username, role: user.role },

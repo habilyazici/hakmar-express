@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import type { App } from 'supertest/types';
 import { AppModule } from '../../src/app.module';
 import { setupApp } from '../../src/setup-app';
 
@@ -16,5 +17,5 @@ export async function createTestApp(): Promise<INestApplication> {
 }
 
 export function agent(app: INestApplication) {
-  return request(app.getHttpServer());
+  return request(app.getHttpServer() as App);
 }
