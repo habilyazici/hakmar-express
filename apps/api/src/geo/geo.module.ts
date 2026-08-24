@@ -4,10 +4,17 @@ import {
   CitiesController,
   RegionsController,
 } from './geo.controller';
+import { GeoJsonController } from './geojson.controller';
+import { GeoJsonService } from './geojson.service';
 import { BranchesService, CitiesService, RegionsService } from './geo.services';
 
 @Module({
-  controllers: [RegionsController, CitiesController, BranchesController],
-  providers: [RegionsService, CitiesService, BranchesService],
+  controllers: [
+    RegionsController,
+    CitiesController,
+    BranchesController,
+    GeoJsonController,
+  ],
+  providers: [RegionsService, CitiesService, BranchesService, GeoJsonService],
 })
 export class GeoModule {}

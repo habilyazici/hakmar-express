@@ -633,3 +633,60 @@ select.input {
   border-radius: var(--radius-sm);
   color: var(--text);
 }
+
+/* ---------- choropleth map ---------- */
+
+:root {
+  --map-empty: #e8ebef;
+  --map-stroke: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --map-empty: #232a32;
+    --map-stroke: #12151a;
+  }
+}
+
+.map__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.map__area {
+  stroke: var(--map-stroke);
+  stroke-width: 0.8;
+  cursor: pointer;
+  transition: opacity 0.1s ease;
+}
+
+.map__area--hover {
+  stroke: var(--text);
+  stroke-width: 1.4;
+}
+
+.map__legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.map__ramp {
+  width: 120px;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--accent) 10%, var(--map-empty)),
+    var(--accent)
+  );
+}
+
+.map__readout {
+  margin-left: auto;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}

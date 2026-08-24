@@ -78,7 +78,7 @@ session family.
 | KDS | `GET /kds/abc-analysis`, `/demand-forecast`, `/customer-segmentation`, `/market-basket` |
 | Spatial forecast | `POST /spatial-forecast/run`, `GET /spatial-forecast/runs`, `/runs/:id` |
 | Catalog | `/catalog/categories`, `/subcategories`, `/brands`, `/products` — list/read/create/update/delete |
-| Geo | `/geo/regions`, `/cities`, `/branches` — list/read/create/update/delete |
+| Geo | `/geo/regions`, `/cities`, `/branches` — list/read/create/update/delete; `GET /geo/geojson/city` for the map boundaries |
 | People | `/people/customers`, `/cashiers` — list/read/create/update/delete |
 | Users | `/users` (SUPERADMIN only) — list/read/create/update/delete, `PATCH /users/:id/password`; `PATCH /users/me/password` for any role |
 
@@ -108,17 +108,17 @@ region) over that area's own monthly history, using a linear trend plus
 two Fourier harmonics for seasonality, and layers discount / cost /
 purchasing-power scenarios on top. Areas with too little history fall
 back to their mean and are labelled as such rather than presented as
-fitted. Every run is recorded in `spatial_forecast_runs`.
+fitted. Every run is recorded in `spatial_forecast_runs`, and city runs are
+drawn as a choropleth of Türkiye's 81 provinces joined on licence-plate
+code. See `apps/api/prisma/data/README.md` for the boundary data's source
+and licence.
 
 Web exposes a page per module — Dashboard, Charts, Tables, KDS Analiz and
 Tahmin — behind a shared navigation shell. The three chart-heavy routes are
 lazy-loaded so the charting library stays out of the initial bundle.
 
-Not yet started: the Leaflet choropleth for Spatial Forecast (its GeoJSON
-boundary file was never in the legacy repo, only a loader pointing at a
-missing `tr-cities.json`, so that data has to be sourced first — the API
-already returns plate codes and region ids for it), transaction listing, and
-web pages for the master-data and user-management routes.
+Not yet started: transaction listing, and web pages for the master-data and
+user-management routes.
 
 Decisions carried from the audit: Postgres over MySQL, Redis over the legacy
 ad-hoc cache, Prisma over Sequelize, the raw-SQL admin tool dropped in favor

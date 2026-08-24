@@ -9,7 +9,8 @@ import {
   integer,
   signedPercent,
 } from '../../lib/format';
-import { postData } from '../../lib/query';
+import { postData, useApiQuery } from '../../lib/query';
+import { TurkeyMap, type FeatureCollection, type MapValue } from './TurkeyMap';
 
 type Metric = 'quantity' | 'sales' | 'cost' | 'profit';
 
@@ -18,6 +19,12 @@ interface MetricValues {
   sales: number;
   cost: number;
   profit: number;
+}
+
+interface GeoJsonPayload {
+  dataType: string;
+  version: number;
+  data: FeatureCollection;
 }
 
 interface AreaForecast {
@@ -125,6 +132,23 @@ function TotalsCard({
   );
 }
 
+function toMapValues(result: ForecastResult): Map<number, MapValue> {
+  const metric = result.params.metric;
+  const isMoney = metric !== 'quantity';
+  const values = new Map<number, MapValue>();
+  for (const area of result.areas) {
+    if (area.plateCode === null) continue;
+    const value = area.forecast[metric];
+    values.set(area.plateCode, {
+      label: area.name,
+      value,
+      changePct: area.changePct[metric],
+      formatted: isMoney ? compactCurrency.format(value) : integer.format(value),
+    });
+  }
+  return values;
+}
+
 export function ForecastPage() {
   const [mapType, setMapType] = useState<'city' | 'region'>('city');
   const [metric, setMetric] = useState<Metric>('sales');
@@ -132,6 +156,11 @@ export function ForecastPage() {
   const [discountPct, setDiscountPct] = useState(0);
   const [costChangePct, setCostChangePct] = useState(0);
   const [purchasingPowerPct, setPurchasingPowerPct] = useState(0);
+
+  const geojson = useApiQuery<GeoJsonPayload>(
+    ['geo', 'geojson', 'city'],
+    '/geo/geojson/city',
+  );
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -315,6 +344,21 @@ export function ForecastPage() {
                 ` · iskonto cironun %${decimal.format(result.model.discountShare * 100)}'ine uygulandı`}
             </p>
           </section>
+
+          {/* The map only makes sense per city: region rows have no plate
+              code to join boundaries on. */}
+          {result.params.mapType === 'city' && geojson.data && (
+            <section className="section">
+              <h2 className="section-title">Harita</h2>
+              <div className="panel">
+                <TurkeyMap
+                  geojson={geojson.data.data}
+                  values={toMapValues(result)}
+                  metricLabel={METRIC_LABELS[result.params.metric]}
+                />
+              </div>
+            </section>
+          )}
 
           <section className="section">
             <h2 className="section-title">
