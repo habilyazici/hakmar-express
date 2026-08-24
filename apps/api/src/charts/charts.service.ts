@@ -102,6 +102,27 @@ export interface HeatmapRow {
   value: string | number;
 }
 
+export interface BucketRow {
+  bucket: string;
+  count: number;
+}
+
+export interface WaterfallStep {
+  step: 'sales' | 'cost' | 'profit';
+  value: number;
+}
+
+export interface GeographicSalesRow {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  sales: string;
+}
+
+const BASKET_SIZE_ORDER = ['small', 'medium', 'large', 'xlarge'];
+const LOYALTY_TIER_ORDER = ['new', 'occasional', 'regular', 'loyal'];
+
 @Injectable()
 export class ChartsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -225,6 +246,86 @@ export class ChartsService {
       GROUP BY reg.name, cat.name
       ORDER BY reg.name, cat.name
     `);
+  }
+
+  /** Replaces legacy basket-size: how many receipts fall into each basket-value tier. */
+  async getBasketSize(): Promise<BucketRow[]> {
+    const rows = await this.prisma.$queryRaw<BucketRow[]>(Prisma.sql`
+      SELECT bucket, COUNT(*)::int AS count
+      FROM (
+        SELECT CASE
+          WHEN basket_total < 100 THEN 'small'
+          WHEN basket_total < 300 THEN 'medium'
+          WHEN basket_total < 600 THEN 'large'
+          ELSE 'xlarge'
+        END AS bucket
+        FROM (
+          SELECT SUM(ri.total_price) AS basket_total
+          FROM receipts r
+          JOIN receipt_items ri ON ri.receipt_id = r.id
+          GROUP BY r.id
+        ) per_receipt
+      ) bucketed
+      GROUP BY bucket
+    `);
+    return this.sortByOrder(rows, BASKET_SIZE_ORDER);
+  }
+
+  /** Replaces legacy profit-waterfall: sales -> cost -> net profit as three steps. */
+  async getProfitWaterfall(): Promise<WaterfallStep[]> {
+    const totals = await this.prisma.receiptItem.aggregate({
+      _sum: { totalPrice: true, totalCost: true, totalMargin: true },
+    });
+    return [
+      { step: 'sales', value: Number(totals._sum.totalPrice ?? 0) },
+      { step: 'cost', value: -Number(totals._sum.totalCost ?? 0) },
+      { step: 'profit', value: Number(totals._sum.totalMargin ?? 0) },
+    ];
+  }
+
+  /** Replaces legacy customer-loyalty: customers bucketed by visit-count tier. */
+  async getCustomerLoyalty(): Promise<BucketRow[]> {
+    const rows = await this.prisma.$queryRaw<BucketRow[]>(Prisma.sql`
+      SELECT bucket, COUNT(*)::int AS count
+      FROM (
+        SELECT CASE
+          WHEN visits = 1 THEN 'new'
+          WHEN visits BETWEEN 2 AND 4 THEN 'occasional'
+          WHEN visits BETWEEN 5 AND 10 THEN 'regular'
+          ELSE 'loyal'
+        END AS bucket
+        FROM (
+          SELECT customer_id, COUNT(*) AS visits
+          FROM receipts
+          GROUP BY customer_id
+        ) per_customer
+      ) bucketed
+      GROUP BY bucket
+    `);
+    return this.sortByOrder(rows, LOYALTY_TIER_ORDER);
+  }
+
+  /** Replaces legacy geographic-sales-map: per-branch sales for lat/lng bubble maps. */
+  getGeographicSales(): Promise<GeographicSalesRow[]> {
+    return this.prisma.$queryRaw<GeographicSalesRow[]>(Prisma.sql`
+      SELECT br.id,
+             br.branch_name AS name,
+             br.latitude,
+             br.longitude,
+             COALESCE(SUM(ri.total_price), 0) AS sales
+      FROM branches br
+      LEFT JOIN receipts r ON r.branch_id = br.id
+      LEFT JOIN receipt_items ri ON ri.receipt_id = r.id
+      WHERE br.latitude IS NOT NULL AND br.longitude IS NOT NULL
+      GROUP BY br.id, br.branch_name, br.latitude, br.longitude
+      ORDER BY sales DESC
+    `);
+  }
+
+  private sortByOrder(rows: BucketRow[], order: string[]): BucketRow[] {
+    return [...rows].sort(
+      (a, b) => order.indexOf(a.bucket) - order.indexOf(b.bucket),
+    );
   }
 
   private applyCumulative(

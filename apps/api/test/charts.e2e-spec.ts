@@ -46,7 +46,7 @@ describe('Charts (e2e)', () => {
     });
     cityId = city.id;
     const branch = await prisma.branch.create({
-      data: { name: 'E2E Branch', cityId },
+      data: { name: 'E2E Branch', cityId, latitude: 40.98, longitude: 29.03 },
     });
     branchId = branch.id;
     const category = await prisma.category.create({
@@ -264,5 +264,69 @@ describe('Charts (e2e)', () => {
     );
     expect(ours).toBeDefined();
     expect(Number(ours!.value)).toBe(60);
+  });
+
+  // The remaining tests assert lower bounds (>=), not exact totals: these
+  // endpoints aggregate across the whole table, and other e2e spec files
+  // running concurrently against the same database also insert receipts.
+  // Only per-entity lookups (by our seeded names, above) can assert exact
+  // numbers safely under that concurrency.
+
+  it('places our known receipts in the medium and large basket buckets', async () => {
+    const res = await agent(app)
+      .get('/api/v1/charts/basket-size')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const rows = res.body.data as { bucket: string; count: number }[];
+    const medium = rows.find((r) => r.bucket === 'medium'); // our 200 receipt
+    const large = rows.find((r) => r.bucket === 'large'); // our 300 receipt
+    expect(medium?.count).toBeGreaterThanOrEqual(1);
+    expect(large?.count).toBeGreaterThanOrEqual(1);
+  });
+
+  it('puts our two-visit customer in the occasional loyalty tier', async () => {
+    const res = await agent(app)
+      .get('/api/v1/charts/customer-loyalty')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const rows = res.body.data as { bucket: string; count: number }[];
+    const occasional = rows.find((r) => r.bucket === 'occasional');
+    expect(occasional?.count).toBeGreaterThanOrEqual(1);
+  });
+
+  it('includes at least our known sales/cost/profit in the waterfall', async () => {
+    const res = await agent(app)
+      .get('/api/v1/charts/profit-waterfall')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const steps = res.body.data as { step: string; value: number }[];
+    const sales = steps.find((s) => s.step === 'sales')!;
+    const cost = steps.find((s) => s.step === 'cost')!;
+    const profit = steps.find((s) => s.step === 'profit')!;
+    expect(sales.value).toBeGreaterThanOrEqual(500);
+    expect(cost.value).toBeLessThanOrEqual(-300);
+    expect(profit.value).toBeGreaterThanOrEqual(200);
+  });
+
+  it('places our branch on the geographic map with its exact coordinates', async () => {
+    const res = await agent(app)
+      .get('/api/v1/charts/geographic-sales')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const rows = res.body.data as {
+      name: string;
+      latitude: number;
+      longitude: number;
+      sales: string;
+    }[];
+    const ours = rows.find((r) => r.name === 'E2E Branch');
+    expect(ours).toBeDefined();
+    expect(ours!.latitude).toBeCloseTo(40.98);
+    expect(ours!.longitude).toBeCloseTo(29.03);
+    expect(Number(ours!.sales)).toBe(500);
   });
 });

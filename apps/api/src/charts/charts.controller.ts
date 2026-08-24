@@ -42,4 +42,28 @@ export class ChartsController {
       query.metric ?? TrendMetric.SALES,
     );
   }
+
+  @Get('basket-size')
+  @CacheTTL(15 * 60 * 1000)
+  getBasketSize() {
+    return this.charts.getBasketSize();
+  }
+
+  @Get('profit-waterfall')
+  @CacheTTL(15 * 60 * 1000)
+  getProfitWaterfall() {
+    return this.charts.getProfitWaterfall();
+  }
+
+  @Get('customer-loyalty')
+  @CacheTTL(15 * 60 * 1000)
+  getCustomerLoyalty() {
+    return this.charts.getCustomerLoyalty();
+  }
+
+  @Get('geographic-sales')
+  @CacheTTL(15 * 60 * 1000)
+  getGeographicSales() {
+    return this.charts.getGeographicSales();
+  }
 }
