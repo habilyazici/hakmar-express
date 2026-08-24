@@ -6,3 +6,7 @@
 // "Reflect.getMetadata is not a function". Loading it for every suite keeps
 // that from depending on which Nest helper a test happens to touch.
 import 'reflect-metadata';
+
+// Same reason as main.ts: configuration read at class-definition time (the
+// auth throttles) has to see .env before any module is imported.
+import 'dotenv/config';

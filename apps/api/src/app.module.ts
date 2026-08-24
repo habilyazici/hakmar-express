@@ -19,6 +19,7 @@ import { PeopleModule } from './people/people.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SpatialForecastModule } from './spatial-forecast/spatial-forecast.module';
 import { TablesModule } from './tables/tables.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { TablesModule } from './tables/tables.module';
     CatalogModule,
     GeoModule,
     PeopleModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [

@@ -17,6 +17,7 @@ import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { LOGIN_THROTTLE, SESSION_THROTTLE } from './login-throttle';
 import {
   REFRESH_COOKIE,
   clearRefreshCookie,
@@ -39,9 +40,10 @@ export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   // Legacy app had no rate limiting anywhere — login was fully open to
-  // brute-force. 5 attempts/min per IP here, well below the global default.
+  // brute-force. Strict per-IP limit here, well below the global default;
+  // see login-throttle.ts for why it is configurable.
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Throttle({ default: LOGIN_THROTTLE })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
@@ -59,7 +61,7 @@ export class AuthController {
   }
 
   @Public()
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ default: SESSION_THROTTLE })
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(
@@ -89,7 +91,7 @@ export class AuthController {
   // explicit limit it inherited only the loose global one, leaving an
   // unauthenticated endpoint that writes to the database wide open.
   @Public()
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ default: SESSION_THROTTLE })
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {

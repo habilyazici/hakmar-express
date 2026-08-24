@@ -72,6 +72,21 @@ export class EnvironmentVariables {
   COOKIE_SECURE?: string;
 
   @IsOptional()
+  @IsInt()
+  @Min(1)
+  LOGIN_RATE_LIMIT?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  SESSION_RATE_LIMIT?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1000)
+  LOGIN_RATE_TTL_MS?: number;
+
+  @IsOptional()
   @IsString()
   SEED_ADMIN_USERNAME?: string;
 

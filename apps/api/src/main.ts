@@ -1,3 +1,9 @@
+// Must be the first import: @Throttle and anything else that reads
+// process.env while its class is being defined runs before ConfigModule's
+// providers exist, so a value living only in .env would be silently ignored.
+// Loading it here makes local development behave like a deployment, where
+// these arrive as real environment variables.
+import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { setupApp } from './setup-app';

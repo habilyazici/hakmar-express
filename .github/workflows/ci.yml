@@ -14,6 +14,10 @@ env:
   WEB_ORIGIN: http://localhost:5173
   SEED_ADMIN_USERNAME: superadmin
   SEED_ADMIN_PASSWORD: ChangeMe123!
+  # Every e2e request comes from the same address, so the per-IP login limit
+  # would otherwise reject the suite's own logins rather than any attack.
+  LOGIN_RATE_LIMIT: 200
+  SESSION_RATE_LIMIT: 200
 
 jobs:
   ci:

@@ -11,7 +11,10 @@
     "SEED_ADMIN_USERNAME",
     "SEED_ADMIN_PASSWORD",
     "PORT",
-    "VITE_API_URL"
+    "VITE_API_URL",
+    "LOGIN_RATE_LIMIT",
+    "SESSION_RATE_LIMIT",
+    "LOGIN_RATE_TTL_MS"
   ],
   "tasks": {
     "build": {

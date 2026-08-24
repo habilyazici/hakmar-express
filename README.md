@@ -51,6 +51,15 @@ All routes are under `/api/v1` and require a bearer access token. RBAC is
 fail-closed: a route carrying neither `@Roles()` nor `@Public()` is denied,
 so a new endpoint cannot be left unguarded by omission.
 
+Account management is SUPERADMIN-only, and the API refuses the requests that
+would make an installation unrecoverable: deactivating, demoting or deleting
+your own account, or removing the last active superadmin. Password hashes are
+excluded by the projection every read goes through, so one cannot reach a
+response by omission. Resetting a password, deactivating an account or
+changing a role revokes that user's refresh tokens — the role lives in the
+access token, so this caps leftover privilege at one token lifetime rather
+than for as long as the session keeps renewing.
+
 Sessions use a short-lived access token held only in browser memory, plus a
 rotating refresh token that exists solely as an httpOnly, `SameSite=Strict`
 cookie scoped to `/api/v1/auth` — no part of the credential is reachable
@@ -71,6 +80,7 @@ session family.
 | Catalog | `/catalog/categories`, `/subcategories`, `/brands`, `/products` — list/read/create/update/delete |
 | Geo | `/geo/regions`, `/cities`, `/branches` — list/read/create/update/delete |
 | People | `/people/customers`, `/cashiers` — list/read/create/update/delete |
+| Users | `/users` (SUPERADMIN only) — list/read/create/update/delete, `PATCH /users/:id/password`; `PATCH /users/me/password` for any role |
 
 Master-data routes are read-open to every role and write-restricted to ADMIN
 and above, decided per method rather than per controller. List endpoints are
@@ -107,8 +117,8 @@ lazy-loaded so the charting library stays out of the initial bundle.
 Not yet started: the Leaflet choropleth for Spatial Forecast (its GeoJSON
 boundary file was never in the legacy repo, only a loader pointing at a
 missing `tr-cities.json`, so that data has to be sourced first — the API
-already returns plate codes and region ids for it), admin-user management,
-transaction listing, and web pages for the master-data routes.
+already returns plate codes and region ids for it), transaction listing, and
+web pages for the master-data and user-management routes.
 
 Decisions carried from the audit: Postgres over MySQL, Redis over the legacy
 ad-hoc cache, Prisma over Sequelize, the raw-SQL admin tool dropped in favor
