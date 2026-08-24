@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuth } from '../auth/auth-context';
+import { useAuth } from '../auth/use-auth';
 import {
   useDailySummary,
   useGeneralStats,
@@ -7,12 +7,31 @@ import {
   usePerformance,
   useSummary,
 } from './hooks';
-import type { Period } from './types';
+import type { DailySummaryRow, MonthlySalesRow, Period } from './types';
 
 const currency = new Intl.NumberFormat('tr-TR', {
   style: 'currency',
   currency: 'TRY',
   maximumFractionDigits: 0,
+});
+
+const compactCurrency = new Intl.NumberFormat('tr-TR', {
+  style: 'currency',
+  currency: 'TRY',
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+
+const count = new Intl.NumberFormat('tr-TR');
+
+const dayLabel = new Intl.DateTimeFormat('tr-TR', {
+  day: 'numeric',
+  month: 'short',
+});
+
+const monthLabel = new Intl.DateTimeFormat('tr-TR', {
+  month: 'short',
+  year: 'numeric',
 });
 
 const PERIOD_LABELS: Record<Period, string> = {
@@ -24,9 +43,9 @@ const PERIOD_LABELS: Record<Period, string> = {
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ border: '1px solid #ddd', borderRadius: 8, padding: 16 }}>
-      <div style={{ fontSize: 13, color: '#666' }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 600 }}>{value}</div>
+    <div className="stat-card">
+      <span className="stat-card__label">{label}</span>
+      <span className="stat-card__value">{value}</span>
     </div>
   );
 }
@@ -39,26 +58,120 @@ function PeriodSelector({
   onChange: (period: Period) => void;
 }) {
   return (
-    <div style={{ display: 'flex', gap: 6 }}>
+    <div className="btn-group" role="group" aria-label="Dönem seçimi">
       {(Object.keys(PERIOD_LABELS) as Period[]).map((period) => (
         <button
           key={period}
+          type="button"
+          className="btn"
           onClick={() => onChange(period)}
           aria-pressed={value === period}
-          style={{
-            padding: '6px 12px',
-            borderRadius: 6,
-            border: '1px solid #ccc',
-            background: value === period ? '#222' : '#fff',
-            color: value === period ? '#fff' : '#222',
-            cursor: 'pointer',
-          }}
         >
           {PERIOD_LABELS[period]}
         </button>
       ))}
     </div>
   );
+}
+
+/**
+ * Both trend sections used to render nothing but a row count plus the note
+ * "(veritabanı henüz boş olduğu için 0 olabilir)" — a development placeholder
+ * that shipped as the actual UI. This draws the series the endpoint already
+ * returns.
+ */
+function BarSeries({
+  points,
+}: {
+  points: { key: string; label: string; value: number }[];
+}) {
+  const max = Math.max(...points.map((p) => p.value), 0);
+  return (
+    <div className="bars" role="img" aria-label={`${points.length} noktalı seri`}>
+      {points.map((point) => (
+        <div
+          key={point.key}
+          className="bars__item"
+          style={{ height: max > 0 ? `${(point.value / max) * 100}%` : '2px' }}
+          title={`${point.label}: ${currency.format(point.value)}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function TrendSection({
+  title,
+  points,
+  isLoading,
+  emptyText,
+}: {
+  title: string;
+  points: { key: string; label: string; value: number }[];
+  isLoading: boolean;
+  emptyText: string;
+}) {
+  const total = points.reduce((sum, p) => sum + p.value, 0);
+  return (
+    <section className="section">
+      <div className="row-between" style={{ marginBottom: 12 }}>
+        <h2 className="section-title" style={{ marginBottom: 0 }}>
+          {title}
+        </h2>
+        {points.length > 0 && (
+          <span className="muted">Toplam {compactCurrency.format(total)}</span>
+        )}
+      </div>
+      <div className="panel">
+        {isLoading && <p className="muted">Yükleniyor…</p>}
+        {!isLoading && points.length === 0 && (
+          <p className="muted">{emptyText}</p>
+        )}
+        {!isLoading && points.length > 0 && (
+          <>
+            <BarSeries points={points} />
+            <div className="row-between" style={{ marginTop: 8 }}>
+              <span className="muted">{points[0].label}</span>
+              <span className="muted">{points[points.length - 1].label}</span>
+            </div>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function DeltaCell({ value }: { value: number | null }) {
+  if (value === null) {
+    return (
+      <td className="num delta-neutral" title="Önceki dönemde veri yok">
+        —
+      </td>
+    );
+  }
+  const className = value >= 0 ? 'delta-positive' : 'delta-negative';
+  return (
+    <td className={`num ${className}`}>
+      {value >= 0 ? '+' : ''}
+      {value.toFixed(1)}%
+    </td>
+  );
+}
+
+function toDayPoints(rows: DailySummaryRow[] | undefined) {
+  return (rows ?? []).map((row) => ({
+    key: row.day,
+    label: dayLabel.format(new Date(row.day)),
+    value: Number(row.sales),
+  }));
+}
+
+function toMonthPoints(rows: MonthlySalesRow[] | undefined) {
+  return (rows ?? []).map((row) => ({
+    key: row.month,
+    label: monthLabel.format(new Date(row.month)),
+    value: Number(row.sales),
+  }));
 }
 
 export function DashboardPage() {
@@ -72,128 +185,176 @@ export function DashboardPage() {
   const queries = [summary, stats, performance, dailySummary, monthlySales];
   const hasError = queries.some((q) => q.isError);
 
+  const periodName = PERIOD_LABELS[period];
+
   return (
-    <main style={{ padding: 24, maxWidth: 960, margin: '0 auto' }}>
-      <header
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 24,
-        }}
-      >
-        <h1 style={{ fontSize: 22 }}>Genel Bakış</h1>
-        <div>
-          <span style={{ marginRight: 12, fontSize: 14, color: '#666' }}>
+    <main className="page">
+      <header className="page-header">
+        <h1 className="page-title">Genel Bakış</h1>
+        <div className="row-between" style={{ gap: 12 }}>
+          <span className="user-chip">
             {user?.username} ({user?.role})
           </span>
-          <button onClick={() => logout()}>Çıkış yap</button>
+          <button className="btn" onClick={() => void logout()}>
+            Çıkış yap
+          </button>
         </div>
       </header>
 
       {hasError && (
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '10px 14px',
-            marginBottom: 20,
-            background: '#fdecea',
-            border: '1px solid #f3b4ac',
-            borderRadius: 6,
-          }}
-        >
-          <span style={{ fontSize: 14, color: '#7a1f14' }}>
-            Bazı veriler yüklenemedi.
-          </span>
+        <div className="alert" role="alert">
+          <span>Bazı veriler yüklenemedi.</span>
           <button
-            onClick={() => queries.forEach((q) => q.isError && q.refetch())}
+            className="btn"
+            onClick={() => {
+              queries.forEach((q) => {
+                if (q.isError) void q.refetch();
+              });
+            }}
           >
             Tekrar dene
           </button>
         </div>
       )}
 
-      <section
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: 12,
-          marginBottom: 24,
-        }}
-      >
-        <StatCard
-          label="Toplam Satış"
-          value={summary.data ? currency.format(Number(summary.data.totalSales)) : '…'}
-        />
-        <StatCard
-          label="Toplam Kâr"
-          value={summary.data ? currency.format(Number(summary.data.totalProfit)) : '…'}
-        />
-        <StatCard label="Şube" value={stats.data ? String(stats.data.branches) : '…'} />
-        <StatCard label="Müşteri" value={stats.data ? String(stats.data.customers) : '…'} />
-        <StatCard label="Ürün" value={stats.data ? String(stats.data.products) : '…'} />
-        <StatCard label="Fiş" value={stats.data ? String(stats.data.receipts) : '…'} />
+      <section className="section">
+        <div className="card-grid">
+          <StatCard
+            label="Toplam Satış"
+            value={
+              summary.data ? currency.format(Number(summary.data.totalSales)) : '…'
+            }
+          />
+          <StatCard
+            label="Toplam Kâr"
+            value={
+              summary.data
+                ? currency.format(Number(summary.data.totalProfit))
+                : '…'
+            }
+          />
+          <StatCard
+            label="Şube"
+            value={stats.data ? count.format(stats.data.branches) : '…'}
+          />
+          <StatCard
+            label="Müşteri"
+            value={stats.data ? count.format(stats.data.customers) : '…'}
+          />
+          <StatCard
+            label="Ürün"
+            value={stats.data ? count.format(stats.data.products) : '…'}
+          />
+          <StatCard
+            label="Fiş"
+            value={stats.data ? count.format(stats.data.receipts) : '…'}
+          />
+        </div>
       </section>
 
-      <section style={{ marginBottom: 24 }}>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 8,
-          }}
-        >
-          <h2 style={{ fontSize: 16 }}>
-            Bu {PERIOD_LABELS[period]} vs. Geçen {PERIOD_LABELS[period]}
+      <section className="section">
+        <div className="row-between" style={{ marginBottom: 12 }}>
+          <h2 className="section-title" style={{ marginBottom: 0 }}>
+            Bu {periodName} vs. Geçen {periodName}
           </h2>
           <PeriodSelector value={period} onChange={setPeriod} />
         </div>
-        {performance.isFetching && (
-          <p style={{ fontSize: 12, color: '#999', marginBottom: 8 }}>
-            Güncelleniyor…
-          </p>
-        )}
-        {performance.data && (
-          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-            <tbody>
-              <tr>
-                <td>Satış değişimi</td>
-                <td>{formatPct(performance.data.changePct.sales)}</td>
-              </tr>
-              <tr>
-                <td>Kâr değişimi</td>
-                <td>{formatPct(performance.data.changePct.profit)}</td>
-              </tr>
-              <tr>
-                <td>Fiş sayısı değişimi</td>
-                <td>{formatPct(performance.data.changePct.orders)}</td>
-              </tr>
-            </tbody>
-          </table>
-        )}
+        <div className="panel">
+          {performance.isFetching && <p className="muted">Güncelleniyor…</p>}
+          {performance.data && (
+            <div className="table-scroll">
+              <table className="table">
+                <caption>
+                  Seçilen dönem ile bir önceki eşit uzunluktaki dönemin
+                  karşılaştırması.
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Ölçüt</th>
+                    <th scope="col" className="num">
+                      Bu {periodName}
+                    </th>
+                    <th scope="col" className="num">
+                      Geçen {periodName}
+                    </th>
+                    <th scope="col" className="num">
+                      Değişim
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Satış</th>
+                    <td className="num">
+                      {currency.format(performance.data.current.sales)}
+                    </td>
+                    <td className="num">
+                      {currency.format(performance.data.previous.sales)}
+                    </td>
+                    <DeltaCell value={performance.data.changePct.sales} />
+                  </tr>
+                  <tr>
+                    <th scope="row">Kâr</th>
+                    <td className="num">
+                      {currency.format(performance.data.current.profit)}
+                    </td>
+                    <td className="num">
+                      {currency.format(performance.data.previous.profit)}
+                    </td>
+                    <DeltaCell value={performance.data.changePct.profit} />
+                  </tr>
+                  <tr>
+                    <th scope="row">Fiş sayısı</th>
+                    <td className="num">
+                      {count.format(performance.data.current.orders)}
+                    </td>
+                    <td className="num">
+                      {count.format(performance.data.previous.orders)}
+                    </td>
+                    <DeltaCell value={performance.data.changePct.orders} />
+                  </tr>
+                  <tr>
+                    <th scope="row">Ortalama sepet</th>
+                    <td className="num">
+                      {currency.format(performance.data.current.avgBasket)}
+                    </td>
+                    <td className="num">
+                      {currency.format(performance.data.previous.avgBasket)}
+                    </td>
+                    <DeltaCell value={performance.data.changePct.avgBasket} />
+                  </tr>
+                  <tr>
+                    <th scope="row">Farklı ürün</th>
+                    <td className="num">
+                      {count.format(performance.data.current.distinctProducts)}
+                    </td>
+                    <td className="num">
+                      {count.format(performance.data.previous.distinctProducts)}
+                    </td>
+                    <DeltaCell
+                      value={performance.data.changePct.distinctProducts}
+                    />
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </section>
 
-      <section style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 16, marginBottom: 8 }}>Son 30 Gün</h2>
-        <p style={{ fontSize: 13, color: '#666' }}>
-          {dailySummary.data?.length ?? 0} günlük kayıt (veritabanı henüz boş olduğu için 0 olabilir).
-        </p>
-      </section>
+      <TrendSection
+        title="Son 30 Gün"
+        points={toDayPoints(dailySummary.data)}
+        isLoading={dailySummary.isPending}
+        emptyText="Son 30 günde kayıtlı satış yok."
+      />
 
-      <section>
-        <h2 style={{ fontSize: 16, marginBottom: 8 }}>Aylık Satış Trendi</h2>
-        <p style={{ fontSize: 13, color: '#666' }}>
-          {monthlySales.data?.length ?? 0} aylık kayıt.
-        </p>
-      </section>
+      <TrendSection
+        title="Aylık Satış Trendi"
+        points={toMonthPoints(monthlySales.data)}
+        isLoading={monthlySales.isPending}
+        emptyText="Henüz aylık satış kaydı yok."
+      />
     </main>
   );
-}
-
-function formatPct(value: number | null): string {
-  if (value === null) return '—';
-  return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
 }

@@ -1,30 +1,21 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
   apiClient,
   registerUnauthorizedHandler,
   setAccessToken,
   type ApiEnvelope,
 } from '../../lib/api-client';
+import { AuthContext, REFRESH_TOKEN_KEY } from './auth-context';
 import { decodeAccessToken } from './jwt';
 import type { AuthUser, LoginResponse, RefreshResponse } from './types';
 
-const REFRESH_TOKEN_KEY = 'hakmar.refreshToken';
-
-interface AuthContextValue {
-  user: AuthUser | null;
-  isLoading: boolean;
-  login: (username: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
+function storedRefreshToken(): string | null {
+  try {
+    return sessionStorage.getItem(REFRESH_TOKEN_KEY);
+  } catch {
+    return null;
+  }
 }
-
-const AuthContext = createContext<AuthContextValue | null>(null);
 
 async function refreshWithToken(refreshToken: string): Promise<string | null> {
   try {
@@ -56,7 +47,7 @@ async function refreshWithToken(refreshToken: string): Promise<string | null> {
 let inFlightRefresh: Promise<string | null> | null = null;
 function refreshOnce(): Promise<string | null> {
   if (inFlightRefresh) return inFlightRefresh;
-  const stored = sessionStorage.getItem(REFRESH_TOKEN_KEY);
+  const stored = storedRefreshToken();
   if (!stored) return Promise.resolve(null);
   inFlightRefresh = refreshWithToken(stored).finally(() => {
     inFlightRefresh = null;
@@ -66,7 +57,10 @@ function refreshOnce(): Promise<string | null> {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Derived from storage up front rather than set inside the effect: with no
+  // stored token there is nothing to wait for, and starting at `true` only to
+  // synchronously flip it to `false` triggers a second render for nothing.
+  const [isLoading, setIsLoading] = useState(() => storedRefreshToken() !== null);
 
   useEffect(() => {
     registerUnauthorizedHandler(async () => {
@@ -74,14 +68,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(token ? decodeAccessToken(token) : null);
       return token;
     });
+  }, []);
 
-    if (!sessionStorage.getItem(REFRESH_TOKEN_KEY)) {
-      setIsLoading(false);
-      return;
-    }
+  useEffect(() => {
+    if (!isLoading) return;
+    let cancelled = false;
     refreshOnce()
-      .then((token) => setUser(token ? decodeAccessToken(token) : null))
-      .finally(() => setIsLoading(false));
+      .then((token) => {
+        if (!cancelled) setUser(token ? decodeAccessToken(token) : null);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Runs once on mount; isLoading is only ever flipped to false from here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const login = useCallback(async (username: string, password: string) => {
@@ -96,9 +99,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    const stored = sessionStorage.getItem(REFRESH_TOKEN_KEY);
+    const stored = storedRefreshToken();
     if (stored) {
-      await apiClient.post('/auth/logout', { refreshToken: stored }).catch(() => {});
+      await apiClient
+        .post('/auth/logout', { refreshToken: stored })
+        .catch(() => {});
     }
     sessionStorage.removeItem(REFRESH_TOKEN_KEY);
     setAccessToken(null);
@@ -110,10 +115,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
 }

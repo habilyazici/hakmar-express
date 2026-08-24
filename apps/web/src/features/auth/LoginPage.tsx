@@ -1,7 +1,7 @@
 import { isAxiosError } from 'axios';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from './auth-context';
+import { useAuth } from './use-auth';
 
 function loginErrorMessage(err: unknown): string {
   if (isAxiosError(err)) {
@@ -16,12 +16,21 @@ function loginErrorMessage(err: unknown): string {
 }
 
 export function LoginPage() {
-  const { login } = useAuth();
+  const { login, user, isLoading } = useAuth();
   const navigate = useNavigate();
+  const usernameId = useId();
+  const passwordId = useId();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // An already-signed-in user landing on /login (via a bookmark, or the back
+  // button after logging in) used to get the form again with no indication
+  // they already had a session.
+  useEffect(() => {
+    if (!isLoading && user) navigate('/dashboard', { replace: true });
+  }, [isLoading, user, navigate]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -38,30 +47,51 @@ export function LoginPage() {
   }
 
   return (
-    <main style={{ display: 'grid', placeItems: 'center', minHeight: '100vh' }}>
+    <main className="centered-page">
       <form
         onSubmit={handleSubmit}
-        style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 280 }}
+        className="panel stack"
+        style={{ width: 320, gap: 16 }}
       >
-        <h1 style={{ fontSize: 20, marginBottom: 8 }}>Hakmar Express</h1>
-        <input
-          type="text"
-          placeholder="Kullanıcı adı"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          autoComplete="username"
-          required
-        />
-        <input
-          type="password"
-          placeholder="Şifre"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete="current-password"
-          required
-        />
-        {error && <p style={{ color: 'crimson', fontSize: 14 }}>{error}</p>}
-        <button type="submit" disabled={isSubmitting}>
+        <div className="stack" style={{ gap: 4 }}>
+          <h1 className="page-title">Hakmar Express</h1>
+          <p className="muted">Yönetim paneline giriş yapın.</p>
+        </div>
+
+        <div className="field">
+          <label htmlFor={usernameId}>Kullanıcı adı</label>
+          <input
+            id={usernameId}
+            className="input"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="username"
+            autoFocus
+            required
+          />
+        </div>
+
+        <div className="field">
+          <label htmlFor={passwordId}>Şifre</label>
+          <input
+            id={passwordId}
+            className="input"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+          />
+        </div>
+
+        {error && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
+
+        <button className="btn btn-primary" type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Giriş yapılıyor…' : 'Giriş yap'}
         </button>
       </form>
