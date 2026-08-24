@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { CacheModule } from './cache/cache.module';
+import { ChartsModule } from './charts/charts.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -20,6 +21,7 @@ import { PrismaModule } from './prisma/prisma.module';
     CacheModule,
     AuthModule,
     DashboardModule,
+    ChartsModule,
   ],
   controllers: [AppController],
   providers: [
