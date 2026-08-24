@@ -6,6 +6,7 @@
     "JWT_ACCESS_SECRET",
     "JWT_ACCESS_EXPIRES_IN",
     "JWT_REFRESH_EXPIRES_IN",
+    "COOKIE_SECURE",
     "WEB_ORIGIN",
     "SEED_ADMIN_USERNAME",
     "SEED_ADMIN_PASSWORD",
@@ -14,8 +15,13 @@
   ],
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**",
+        ".next/**"
+      ]
     },
     "dev": {
       "cache": false,
@@ -24,10 +30,14 @@
     "lint": {},
     "typecheck": {},
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": [
+        "^build"
+      ]
     },
     "test:e2e": {
-      "dependsOn": ["^build"],
+      "dependsOn": [
+        "^build"
+      ],
       "cache": false
     }
   }

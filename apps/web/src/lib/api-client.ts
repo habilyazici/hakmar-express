@@ -6,14 +6,20 @@ import axios, {
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api/v1';
 
-export const apiClient = axios.create({ baseURL: API_BASE_URL });
+// withCredentials is what makes the browser attach the httpOnly refresh
+// cookie to /auth/* calls; without it the cookie is set but never sent back.
+export const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+});
 
 /**
- * The access token lives in memory only — never written to localStorage or
- * sessionStorage. This is a direct response to the legacy app's #5 critical
- * finding: an XSS bug + a localStorage-stored JWT + no CSP turned any
- * injection into full session theft. Losing the token on a hard refresh is
- * an acceptable tradeoff; a silent refresh (see auth-context) restores it.
+ * The access token lives in memory only, and the refresh token is an
+ * httpOnly cookie this file never sees. Together that leaves nothing for a
+ * script to read — a direct response to the legacy app's #5 critical
+ * finding, where an XSS plus a localStorage-stored JWT plus no CSP turned
+ * any injection into full session theft. Losing the access token on a hard
+ * reload is fine: AuthProvider silently refreshes to get a new one.
  */
 let inMemoryAccessToken: string | null = null;
 export function setAccessToken(token: string | null) {

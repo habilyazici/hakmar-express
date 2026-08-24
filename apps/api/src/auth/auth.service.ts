@@ -143,6 +143,18 @@ export class AuthService {
     });
   }
 
+  /**
+   * Lifetime of a refresh token in milliseconds, so the controller can give
+   * the cookie the same expiry as the row backing it. Without this the two
+   * drift: a cookie outliving its row leaves the user with a credential the
+   * server has already forgotten.
+   */
+  refreshTtlMs(): number {
+    const configured =
+      this.config.get<string>('JWT_REFRESH_EXPIRES_IN') ?? '7d';
+    return this.addDuration(new Date(0), configured).getTime();
+  }
+
   private async issueTokenPair(
     userId: number,
     username: string,

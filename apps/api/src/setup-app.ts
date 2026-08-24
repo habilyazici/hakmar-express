@@ -1,4 +1,5 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import cookieParser from 'cookie-parser';
 import type { Application } from 'express';
 import helmet from 'helmet';
 
@@ -26,6 +27,10 @@ export function setupApp(app: INestApplication): INestApplication {
   }
 
   app.use(helmet());
+  app.use(cookieParser());
+  // credentials:true plus an explicit single origin — never a wildcard, which
+  // browsers reject alongside credentials anyway — is what lets the refresh
+  // cookie travel on the XHR from the web app.
   app.enableCors({
     origin: process.env.WEB_ORIGIN ?? 'http://localhost:5173',
     credentials: true,

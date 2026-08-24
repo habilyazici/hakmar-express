@@ -69,6 +69,10 @@ export class EnvironmentVariables {
 
   @IsOptional()
   @IsString()
+  COOKIE_SECURE?: string;
+
+  @IsOptional()
+  @IsString()
   SEED_ADMIN_USERNAME?: string;
 
   @IsOptional()

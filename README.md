@@ -51,6 +51,15 @@ All routes are under `/api/v1` and require a bearer access token. RBAC is
 fail-closed: a route carrying neither `@Roles()` nor `@Public()` is denied,
 so a new endpoint cannot be left unguarded by omission.
 
+Sessions use a short-lived access token held only in browser memory, plus a
+rotating refresh token that exists solely as an httpOnly, `SameSite=Strict`
+cookie scoped to `/api/v1/auth` — no part of the credential is reachable
+from JavaScript. Because that cookie is the only thing the API accepts from
+a cookie and every other route authenticates with a bearer header, there is
+nothing for a cross-site request to abuse and no separate CSRF token is
+needed. Presenting an already-rotated refresh token revokes the whole
+session family.
+
 | Area | Routes |
 | --- | --- |
 | Auth | `POST /auth/login`, `/auth/refresh`, `/auth/logout`, `GET /auth/profile` |
