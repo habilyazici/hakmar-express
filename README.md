@@ -80,8 +80,9 @@ purchasing-power scenarios on top. Areas with too little history fall
 back to their mean and are labelled as such rather than presented as
 fitted. Every run is recorded in `spatial_forecast_runs`.
 
-Web currently exposes the Dashboard Overview page; the Charts/Tables/KDS
-endpoints are API-only so far.
+Web exposes a page per module — Dashboard, Charts, Tables, KDS Analiz and
+Tahmin — behind a shared navigation shell. The three chart-heavy routes are
+lazy-loaded so the charting library stays out of the initial bundle.
 
 Not yet started: the Leaflet choropleth for Spatial Forecast (its GeoJSON
 boundary file was never in the legacy repo, only a loader pointing at a
