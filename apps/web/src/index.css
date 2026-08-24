@@ -690,3 +690,28 @@ select.input {
   font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- resource tabs ---------- */
+
+.tabs {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tabs__group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tabs__label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}

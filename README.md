@@ -113,12 +113,19 @@ drawn as a choropleth of Türkiye's 81 provinces joined on licence-plate
 code. See `apps/api/prisma/data/README.md` for the boundary data's source
 and licence.
 
-Web exposes a page per module — Dashboard, Charts, Tables, KDS Analiz and
-Tahmin — behind a shared navigation shell. The three chart-heavy routes are
-lazy-loaded so the charting library stays out of the initial bundle.
+Web exposes a page per module — Dashboard, Charts, Tables, KDS Analiz,
+Tahmin, Yönetim and Kullanıcılar — behind a shared navigation shell. Heavier
+routes are lazy-loaded so the charting library stays out of the initial
+bundle.
 
-Not yet started: transaction listing, and web pages for the master-data and
-user-management routes.
+Yönetim drives all nine master-data entities from one declarative table of
+resource definitions, with foreign keys rendered as dropdowns populated from
+the related endpoint. That generic approach is safe on the client in a way it
+would not have been on the server: the API validates every write regardless,
+so a mistake in the table produces a 400 the form displays rather than an
+unvalidated write.
+
+Not yet started: transaction listing.
 
 Decisions carried from the audit: Postgres over MySQL, Redis over the legacy
 ad-hoc cache, Prisma over Sequelize, the raw-SQL admin tool dropped in favor

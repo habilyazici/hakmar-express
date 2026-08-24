@@ -25,6 +25,12 @@ const TablesPage = lazy(() =>
 const KdsPage = lazy(() =>
   import('./features/kds/KdsPage').then((m) => ({ default: m.KdsPage })),
 );
+const AdminPage = lazy(() =>
+  import('./features/admin/AdminPage').then((m) => ({ default: m.AdminPage })),
+);
+const UsersPage = lazy(() =>
+  import('./features/admin/UsersPage').then((m) => ({ default: m.UsersPage })),
+);
 const ForecastPage = lazy(() =>
   import('./features/forecast/ForecastPage').then((m) => ({
     default: m.ForecastPage,
@@ -87,6 +93,8 @@ export default function App() {
                 <Route path="/tables" element={<TablesPage />} />
                 <Route path="/kds" element={<KdsPage />} />
                 <Route path="/forecast" element={<ForecastPage />} />
+                <Route path="/admin" element={<AdminPage />} />
+                <Route path="/users" element={<UsersPage />} />
               </Route>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<NotFoundPage />} />

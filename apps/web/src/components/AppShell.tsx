@@ -7,6 +7,8 @@ const NAV = [
   { to: '/tables', label: 'Tablolar' },
   { to: '/kds', label: 'KDS Analiz' },
   { to: '/forecast', label: 'Tahmin' },
+  { to: '/admin', label: 'Yönetim' },
+  { to: '/users', label: 'Kullanıcılar' },
 ];
 
 export function AppShell() {
