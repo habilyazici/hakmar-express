@@ -68,6 +68,17 @@ session family.
 | Tables | `GET /tables/ranking`, `/price-cost-history`, `/region-cost` |
 | KDS | `GET /kds/abc-analysis`, `/demand-forecast`, `/customer-segmentation`, `/market-basket` |
 | Spatial forecast | `POST /spatial-forecast/run`, `GET /spatial-forecast/runs`, `/runs/:id` |
+| Catalog | `/catalog/categories`, `/subcategories`, `/brands`, `/products` — list/read/create/update/delete |
+| Geo | `/geo/regions`, `/cities`, `/branches` — list/read/create/update/delete |
+| People | `/people/customers`, `/cashiers` — list/read/create/update/delete |
+
+Master-data routes are read-open to every role and write-restricted to ADMIN
+and above, decided per method rather than per controller. List endpoints are
+paginated (`limit`, `offset`, `search`) and return `{ items, total, limit,
+offset }`; which columns `search` matches is fixed by each service, never
+supplied by the caller. Deleting a record something else still references
+returns 409, and a duplicate key returns 409, rather than either becoming a
+500.
 
 The Charts and Tables routes replace ~51 near-identical legacy endpoints with
 parameterized ones. Every parameter that reaches SQL is validated against an
@@ -96,8 +107,8 @@ lazy-loaded so the charting library stays out of the initial bundle.
 Not yet started: the Leaflet choropleth for Spatial Forecast (its GeoJSON
 boundary file was never in the legacy repo, only a loader pointing at a
 missing `tr-cities.json`, so that data has to be sourced first — the API
-already returns plate codes and region ids for it), catalog/geo/customer
-master-data management, and transaction listing.
+already returns plate codes and region ids for it), admin-user management,
+transaction listing, and web pages for the master-data routes.
 
 Decisions carried from the audit: Postgres over MySQL, Redis over the legacy
 ad-hoc cache, Prisma over Sequelize, the raw-SQL admin tool dropped in favor

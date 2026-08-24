@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { CacheModule } from './cache/cache.module';
+import { CatalogModule } from './catalog/catalog.module';
 import { ChartsModule } from './charts/charts.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { validateEnv } from './config/env.validation';
@@ -12,7 +13,9 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { GeoModule } from './geo/geo.module';
 import { KdsModule } from './kds/kds.module';
+import { PeopleModule } from './people/people.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SpatialForecastModule } from './spatial-forecast/spatial-forecast.module';
 import { TablesModule } from './tables/tables.module';
@@ -29,6 +32,9 @@ import { TablesModule } from './tables/tables.module';
     TablesModule,
     KdsModule,
     SpatialForecastModule,
+    CatalogModule,
+    GeoModule,
+    PeopleModule,
   ],
   controllers: [AppController],
   providers: [
