@@ -1,0 +1,42 @@
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
+import { Controller, Get, Param, UseInterceptors } from '@nestjs/common';
+import { Role } from '../../generated/prisma/enums';
+import { Roles } from '../common/decorators/roles.decorator';
+import { DashboardService } from './dashboard.service';
+
+@Controller('dashboard')
+@Roles(Role.SUPERADMIN, Role.ADMIN, Role.ANALYST)
+@UseInterceptors(CacheInterceptor)
+export class DashboardController {
+  constructor(private readonly dashboard: DashboardService) {}
+
+  @Get('summary')
+  @CacheTTL(5 * 60 * 1000)
+  getSummary() {
+    return this.dashboard.getSummary();
+  }
+
+  @Get('general-stats')
+  @CacheTTL(30 * 60 * 1000)
+  getGeneralStats() {
+    return this.dashboard.getGeneralStats();
+  }
+
+  @Get('performance/:period')
+  @CacheTTL(5 * 60 * 1000)
+  getPerformance(@Param('period') period: string) {
+    return this.dashboard.getPerformance(period);
+  }
+
+  @Get('daily-summary')
+  @CacheTTL(15 * 60 * 1000)
+  getDailySummary() {
+    return this.dashboard.getDailySummary();
+  }
+
+  @Get('monthly-sales')
+  @CacheTTL(60 * 60 * 1000)
+  getMonthlySales() {
+    return this.dashboard.getMonthlySales();
+  }
+}
