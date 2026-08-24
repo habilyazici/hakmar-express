@@ -14,6 +14,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 import { DashboardModule } from './dashboard/dashboard.module';
 import { KdsModule } from './kds/kds.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { SpatialForecastModule } from './spatial-forecast/spatial-forecast.module';
 import { TablesModule } from './tables/tables.module';
 
 @Module({
@@ -27,6 +28,7 @@ import { TablesModule } from './tables/tables.module';
     ChartsModule,
     TablesModule,
     KdsModule,
+    SpatialForecastModule,
   ],
   controllers: [AppController],
   providers: [
