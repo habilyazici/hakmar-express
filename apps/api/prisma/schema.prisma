@@ -1,0 +1,239 @@
+// Hakmar Express v2 — Prisma schema
+// Domain model carried over from the legacy Sequelize/MySQL app, formalized
+// into real version-controlled migrations. See /Users/habil/.claude/plans
+// for the Milestone 1 plan this was generated from.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  SUPERADMIN
+  ADMIN
+  ANALYST
+}
+
+model AdminUser {
+  id            Int            @id @default(autoincrement())
+  username      String         @unique
+  passwordHash  String         @map("password_hash")
+  fullName      String         @map("full_name")
+  email         String?        @unique
+  photoPath     String?        @map("photo_path")
+  jobTitle      String?        @map("job_title")
+  role          Role           @default(ADMIN)
+  isActive      Boolean        @default(true) @map("is_active")
+  lastLogin     DateTime?      @map("last_login")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  refreshTokens RefreshToken[]
+
+  @@map("admin_users")
+}
+
+// New in v2 — legacy app's refresh tokens were stateless JWTs with no
+// rotation or revocation. This table backs a rotate-on-use refresh flow.
+model RefreshToken {
+  id           Int       @id @default(autoincrement())
+  tokenHash    String    @unique @map("token_hash")
+  userId       Int       @map("user_id")
+  user         AdminUser @relation(fields: [userId], references: [id])
+  revokedAt    DateTime? @map("revoked_at")
+  replacedById Int?      @map("replaced_by_id")
+  expiresAt    DateTime  @map("expires_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@map("refresh_tokens")
+}
+
+model Region {
+  id           Int           @id @default(autoincrement())
+  name         String
+  cities       City[]
+  productCosts ProductCost[]
+
+  @@map("regions")
+}
+
+model City {
+  id        Int      @id @default(autoincrement())
+  plateCode Int      @map("plate_code")
+  name      String
+  regionId  Int      @map("region_id")
+  region    Region   @relation(fields: [regionId], references: [id])
+  branches  Branch[]
+
+  @@map("cities")
+}
+
+model Branch {
+  id        Int       @id @default(autoincrement())
+  name      String    @map("branch_name")
+  cityId    Int       @map("city_id")
+  city      City      @relation(fields: [cityId], references: [id])
+  latitude  Float?
+  longitude Float?
+  cashiers  Cashier[]
+  receipts  Receipt[]
+
+  @@map("branches")
+}
+
+model Category {
+  id            Int           @id @default(autoincrement())
+  name          String
+  subcategories Subcategory[]
+  brands        Brand[]
+
+  @@map("categories")
+}
+
+// Completed in v2 — legacy app had this table disconnected from Product.
+model Subcategory {
+  id         Int       @id @default(autoincrement())
+  name       String
+  categoryId Int       @map("category_id")
+  category   Category  @relation(fields: [categoryId], references: [id])
+  products   Product[]
+
+  @@map("subcategories")
+}
+
+model Brand {
+  code       String    @id @map("brand_code")
+  name       String    @map("brand_name")
+  categoryId Int       @map("category_id")
+  category   Category  @relation(fields: [categoryId], references: [id])
+  products   Product[]
+
+  @@map("brands")
+}
+
+model Product {
+  id            Int            @id @default(autoincrement())
+  name          String         @map("product_name")
+  brandCode     String         @map("brand_code")
+  brand         Brand          @relation(fields: [brandCode], references: [code])
+  subcategoryId Int            @map("subcategory_id")
+  subcategory   Subcategory    @relation(fields: [subcategoryId], references: [id])
+  prices        ProductPrice[]
+  costs         ProductCost[]
+  receiptItems  ReceiptItem[]
+
+  @@map("products")
+}
+
+model ProductPrice {
+  id           Int           @id @default(autoincrement())
+  productId    Int           @map("product_id")
+  product      Product       @relation(fields: [productId], references: [id])
+  year         Int
+  unitPrice    Decimal       @map("unit_price") @db.Decimal(10, 2)
+  receiptItems ReceiptItem[]
+
+  @@unique([productId, year])
+  @@map("product_prices")
+}
+
+model ProductCost {
+  id           Int           @id @default(autoincrement())
+  productId    Int           @map("product_id")
+  product      Product       @relation(fields: [productId], references: [id])
+  regionId     Int           @map("region_id")
+  region       Region        @relation(fields: [regionId], references: [id])
+  year         Int
+  unitCost     Decimal       @map("unit_cost") @db.Decimal(10, 2)
+  receiptItems ReceiptItem[]
+
+  @@unique([productId, regionId, year])
+  @@map("product_costs")
+}
+
+model Customer {
+  id        Int       @id @default(autoincrement())
+  firstName String    @map("first_name")
+  lastName  String    @map("last_name")
+  gender    String?   @db.Char(1)
+  receipts  Receipt[]
+
+  @@map("customers")
+}
+
+model Cashier {
+  id        Int       @id @default(autoincrement())
+  firstName String    @map("first_name")
+  lastName  String    @map("last_name")
+  branchId  Int       @map("branch_id")
+  branch    Branch    @relation(fields: [branchId], references: [id])
+  receipts  Receipt[]
+
+  @@map("cashiers")
+}
+
+model Receipt {
+  id          Int           @id @default(autoincrement())
+  branchId    Int           @map("branch_id")
+  branch      Branch        @relation(fields: [branchId], references: [id])
+  cashierId   Int           @map("cashier_id")
+  cashier     Cashier       @relation(fields: [cashierId], references: [id])
+  customerId  Int           @map("customer_id")
+  customer    Customer      @relation(fields: [customerId], references: [id])
+  receiptDate DateTime      @map("receipt_date") @db.Date
+  receiptTime DateTime      @map("receipt_time") @db.Time
+  items       ReceiptItem[]
+
+  @@index([receiptDate])
+  @@map("receipts")
+}
+
+model ReceiptItem {
+  id          Int           @id @default(autoincrement())
+  receiptId   Int           @map("receipt_id")
+  receipt     Receipt       @relation(fields: [receiptId], references: [id])
+  productId   Int           @map("product_id")
+  product     Product       @relation(fields: [productId], references: [id])
+  quantity    Decimal       @db.Decimal(6, 2)
+  priceId     Int?          @map("price_id")
+  price       ProductPrice? @relation(fields: [priceId], references: [id])
+  costId      Int?          @map("cost_id")
+  cost        ProductCost?  @relation(fields: [costId], references: [id])
+  totalPrice  Decimal       @map("total_price") @db.Decimal(12, 2)
+  totalCost   Decimal       @map("total_cost") @db.Decimal(12, 2)
+  totalMargin Decimal       @map("total_margin") @db.Decimal(12, 2)
+
+  @@index([productId])
+  @@map("receipt_items")
+}
+
+model GeoJsonData {
+  id       Int    @id @default(autoincrement())
+  dataType String @map("data_type") // "city" | "region"
+  data     Json
+  version  Int
+
+  @@map("geojson_data")
+}
+
+// New in v2 — legacy app encoded "history" into cache keys instead of a
+// real table. This is used by the (later) Spatial Forecast milestone.
+model SpatialForecastRun {
+  id                 Int      @id @default(autoincrement())
+  mapType            String   @map("map_type")
+  metric             String
+  periodMonths       Int      @map("period_months")
+  discountPct        Decimal? @map("discount_pct") @db.Decimal(5, 2)
+  discountType       String?  @map("discount_type")
+  discountTargetId   Int?     @map("discount_target_id")
+  costChangePct      Decimal? @map("cost_change_pct") @db.Decimal(5, 2)
+  purchasingPowerPct Decimal? @map("purchasing_power_pct") @db.Decimal(5, 2)
+  resultJson         Json     @map("result_json")
+  createdAt          DateTime @default(now()) @map("created_at")
+  createdById        Int      @map("created_by_id")
+
+  @@map("spatial_forecast_runs")
+}
