@@ -4,6 +4,7 @@ import type {
   DailySummaryRow,
   GeneralStatsDto,
   MonthlySalesRow,
+  Period,
   PerformanceDto,
   SummaryDto,
 } from './types';
@@ -27,7 +28,7 @@ export function useGeneralStats() {
   });
 }
 
-export function usePerformance(period: string) {
+export function usePerformance(period: Period) {
   return useQuery({
     queryKey: ['dashboard', 'performance', period],
     queryFn: () => fetchData<PerformanceDto>(`/dashboard/performance/${period}`),

@@ -1,3 +1,5 @@
+export type Period = 'week' | 'month' | 'quarter' | 'year';
+
 export interface SummaryDto {
   totalSales: string;
   totalProfit: string;

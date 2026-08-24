@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAuth } from '../auth/auth-context';
 import {
   useDailySummary,
@@ -6,12 +7,20 @@ import {
   usePerformance,
   useSummary,
 } from './hooks';
+import type { Period } from './types';
 
 const currency = new Intl.NumberFormat('tr-TR', {
   style: 'currency',
   currency: 'TRY',
   maximumFractionDigits: 0,
 });
+
+const PERIOD_LABELS: Record<Period, string> = {
+  week: 'Hafta',
+  month: 'Ay',
+  quarter: 'Çeyrek',
+  year: 'Yıl',
+};
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
@@ -22,11 +31,42 @@ function StatCard({ label, value }: { label: string; value: string }) {
   );
 }
 
+function PeriodSelector({
+  value,
+  onChange,
+}: {
+  value: Period;
+  onChange: (period: Period) => void;
+}) {
+  return (
+    <div style={{ display: 'flex', gap: 6 }}>
+      {(Object.keys(PERIOD_LABELS) as Period[]).map((period) => (
+        <button
+          key={period}
+          onClick={() => onChange(period)}
+          aria-pressed={value === period}
+          style={{
+            padding: '6px 12px',
+            borderRadius: 6,
+            border: '1px solid #ccc',
+            background: value === period ? '#222' : '#fff',
+            color: value === period ? '#fff' : '#222',
+            cursor: 'pointer',
+          }}
+        >
+          {PERIOD_LABELS[period]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function DashboardPage() {
   const { user, logout } = useAuth();
+  const [period, setPeriod] = useState<Period>('month');
   const summary = useSummary();
   const stats = useGeneralStats();
-  const performance = usePerformance('month');
+  const performance = usePerformance(period);
   const dailySummary = useDailySummary();
   const monthlySales = useMonthlySales();
 
@@ -72,7 +112,24 @@ export function DashboardPage() {
       </section>
 
       <section style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 16, marginBottom: 8 }}>Bu Ay vs. Geçen Ay</h2>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 8,
+          }}
+        >
+          <h2 style={{ fontSize: 16 }}>
+            Bu {PERIOD_LABELS[period]} vs. Geçen {PERIOD_LABELS[period]}
+          </h2>
+          <PeriodSelector value={period} onChange={setPeriod} />
+        </div>
+        {performance.isFetching && (
+          <p style={{ fontSize: 12, color: '#999', marginBottom: 8 }}>
+            Güncelleniyor…
+          </p>
+        )}
         {performance.data && (
           <table style={{ borderCollapse: 'collapse', width: '100%' }}>
             <tbody>
