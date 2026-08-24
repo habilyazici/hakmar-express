@@ -82,13 +82,13 @@ describe('Charts (e2e)', () => {
     });
     cashierId = cashier.id;
 
-    // Receipt 1: 2026-01-01, qty 2 @ price 100 -> sales 200, cost 120, margin 80
+    // Receipt 1: 2999-01-01, qty 2 @ price 100 -> sales 200, cost 120, margin 80
     const receipt1 = await prisma.receipt.create({
       data: {
         branchId,
         cashierId,
         customerId,
-        receiptDate: new Date('2026-01-01'),
+        receiptDate: new Date('2999-01-01'),
         receiptTime: new Date('1970-01-01T10:00:00Z'),
       },
     });
@@ -105,13 +105,13 @@ describe('Charts (e2e)', () => {
       },
     });
 
-    // Receipt 2: 2026-01-02, qty 3 @ price 100 -> sales 300, cost 180, margin 120
+    // Receipt 2: 2999-01-02, qty 3 @ price 100 -> sales 300, cost 180, margin 120
     const receipt2 = await prisma.receipt.create({
       data: {
         branchId,
         cashierId,
         customerId,
-        receiptDate: new Date('2026-01-02'),
+        receiptDate: new Date('2999-01-02'),
         receiptTime: new Date('1970-01-01T14:00:00Z'),
       },
     });
@@ -161,12 +161,12 @@ describe('Charts (e2e)', () => {
       res.body.data as { period: string; sales: string; profit: string }[]
     ).filter(
       (r) =>
-        r.period.startsWith('2026-01-01') || r.period.startsWith('2026-01-02'),
+        r.period.startsWith('2999-01-01') || r.period.startsWith('2999-01-02'),
     );
 
     expect(rows).toHaveLength(2);
-    const jan1 = rows.find((r) => r.period.startsWith('2026-01-01'))!;
-    const jan2 = rows.find((r) => r.period.startsWith('2026-01-02'))!;
+    const jan1 = rows.find((r) => r.period.startsWith('2999-01-01'))!;
+    const jan2 = rows.find((r) => r.period.startsWith('2999-01-02'))!;
     expect(Number(jan1.sales)).toBe(200);
     expect(Number(jan1.profit)).toBe(80);
     expect(Number(jan2.sales)).toBe(300);
@@ -181,7 +181,7 @@ describe('Charts (e2e)', () => {
       .expect(200);
 
     const rows = res.body.data as { period: string; orders: number }[];
-    const jan1 = rows.find((r) => r.period.startsWith('2026-01-01'));
+    const jan1 = rows.find((r) => r.period.startsWith('2999-01-01'));
     expect(jan1).toBeDefined();
     expect(jan1!.orders).toBe(1);
   });
@@ -194,8 +194,8 @@ describe('Charts (e2e)', () => {
       .expect(200);
 
     const rows = res.body.data as { period: string; sales: number }[];
-    const jan2Index = rows.findIndex((r) => r.period.startsWith('2026-01-02'));
-    const jan1Index = rows.findIndex((r) => r.period.startsWith('2026-01-01'));
+    const jan2Index = rows.findIndex((r) => r.period.startsWith('2999-01-02'));
+    const jan1Index = rows.findIndex((r) => r.period.startsWith('2999-01-01'));
     // cumulative sum by jan 2 must be >= the sum of just these two known
     // receipts (200 + 300), regardless of whatever else is in the table.
     expect(rows[jan2Index].sales).toBeGreaterThanOrEqual(500);
@@ -240,13 +240,13 @@ describe('Charts (e2e)', () => {
       sales: string;
       profit: string;
     }[];
-    const jan1 = rows.find((r) => r.period.startsWith('2026-01-01'));
+    const jan1 = rows.find((r) => r.period.startsWith('2999-01-01'));
     expect(jan1).toBeDefined();
     expect(Number(jan1!.sales)).toBe(200);
     expect(Number(jan1!.profit)).toBe(80);
   });
 
-  it('buckets sales by weekday x hour (2026-01-01 is a Thursday, 2026-01-02 a Friday)', async () => {
+  it('buckets sales by weekday x hour (2999-01-01 is a Tuesday, 2999-01-02 a Wednesday)', async () => {
     const res = await agent(app)
       .get('/api/v1/charts/heatmap')
       .query({ type: 'weekday-hour', metric: 'sales' })
@@ -254,10 +254,16 @@ describe('Charts (e2e)', () => {
       .expect(200);
 
     const rows = res.body.data as { x: number; y: number; value: string }[];
-    const thursday10am = rows.find((r) => r.x === 4 && r.y === 10);
-    const friday2pm = rows.find((r) => r.x === 5 && r.y === 14);
-    expect(Number(thursday10am!.value)).toBe(200);
-    expect(Number(friday2pm!.value)).toBe(300);
+    // This heatmap keys purely on weekday+hour, so unlike the date-keyed
+    // assertions elsewhere in this file it cannot be isolated from other rows
+    // in the table — any Tuesday 10:00 receipt lands in the same bucket.
+    // Assert our contribution is included rather than that it is alone.
+    const tuesday10am = rows.find((r) => r.x === 2 && r.y === 10);
+    const wednesday2pm = rows.find((r) => r.x === 3 && r.y === 14);
+    expect(tuesday10am).toBeDefined();
+    expect(wednesday2pm).toBeDefined();
+    expect(Number(tuesday10am!.value)).toBeGreaterThanOrEqual(200);
+    expect(Number(wednesday2pm!.value)).toBeGreaterThanOrEqual(300);
   });
 
   it('aggregates sales by year x month across both receipts', async () => {
@@ -268,8 +274,8 @@ describe('Charts (e2e)', () => {
       .expect(200);
 
     const rows = res.body.data as { x: number; y: number; value: string }[];
-    const jan2026 = rows.find((r) => r.x === 2026 && r.y === 1);
-    expect(Number(jan2026!.value)).toBe(500);
+    const jan2999 = rows.find((r) => r.x === 2999 && r.y === 1);
+    expect(Number(jan2999!.value)).toBe(500);
   });
 
   it('computes avg unit cost by region x category from product_costs', async () => {

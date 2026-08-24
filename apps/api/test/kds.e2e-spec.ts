@@ -226,7 +226,11 @@ describe('KDS Analytics (e2e)', () => {
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
 
-    const rows = res.body.data as { id: number; name: string; revenue: string }[];
+    const rows = res.body.data as {
+      id: number;
+      name: string;
+      revenue: string;
+    }[];
     const ours = rows.find((r) => r.name === 'KDS Beta');
     expect(ours).toBeDefined();
     // R2 (15) + R4 (15).

@@ -58,7 +58,11 @@ describe('Dashboard RBAC (e2e)', () => {
     }
   });
 
-  it('returns 404 for an unknown performance period, not a 500', async () => {
+  // A malformed path parameter is a bad request, not a missing resource.
+  // This used to answer 404 because the period was an unvalidated string the
+  // service checked by hand — the one endpoint in the API not guarded by an
+  // enum at the boundary. It is now a ParseEnumPipe like everywhere else.
+  it('returns 400 for an unknown performance period, not 404 or 500', async () => {
     const login = await agent(app)
       .post('/api/v1/auth/login')
       .send({ username: TEST_USERNAME, password: TEST_PASSWORD })
@@ -67,7 +71,23 @@ describe('Dashboard RBAC (e2e)', () => {
     const res = await agent(app)
       .get('/api/v1/dashboard/performance/not-a-real-period')
       .set('Authorization', `Bearer ${login.body.data.accessToken}`);
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
+  });
+
+  it('accepts every valid performance period', async () => {
+    const login = await agent(app)
+      .post('/api/v1/auth/login')
+      .send({ username: TEST_USERNAME, password: TEST_PASSWORD })
+      .expect(200);
+    const token = login.body.data.accessToken as string;
+
+    for (const period of ['week', 'month', 'quarter', 'year']) {
+      const res = await agent(app)
+        .get(`/api/v1/dashboard/performance/${period}`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(200);
+      expect(res.body.data.period).toBe(period);
+    }
   });
 });

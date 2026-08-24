@@ -8,9 +8,8 @@ on:
 env:
   DATABASE_URL: postgresql://hakmar:hakmar_ci_only@localhost:5432/hakmar?schema=public
   REDIS_URL: redis://localhost:6379
-  JWT_ACCESS_SECRET: ci_only_access_secret
+  JWT_ACCESS_SECRET: ci_only_access_secret_not_used_anywhere_else_0123456789
   JWT_ACCESS_EXPIRES_IN: 20m
-  JWT_REFRESH_SECRET: ci_only_refresh_secret
   JWT_REFRESH_EXPIRES_IN: 7d
   WEB_ORIGIN: http://localhost:5173
   SEED_ADMIN_USERNAME: superadmin
@@ -60,11 +59,24 @@ jobs:
       - name: Apply database migrations
         run: pnpm --filter api exec prisma migrate deploy
 
+      # Catches a schema.prisma edit that was never turned into a migration.
+      # Without it, CI stayed green while the committed migrations and the
+      # schema drifted apart, and only the deploy would find out.
+      - name: Check for schema/migration drift
+        run: >-
+          pnpm --filter api exec prisma migrate diff
+          --from-config-datasource
+          --to-schema prisma/schema.prisma
+          --exit-code
+
       - name: Seed database
         run: pnpm --filter api exec prisma db seed
 
+      # --no-fix: the local `lint` script auto-fixes, which in CI would mean
+      # silently rewriting files and reporting success for problems that are
+      # still in the committed source.
       - name: Lint
-        run: pnpm run lint
+        run: pnpm run lint -- --no-fix
 
       - name: Typecheck
         run: pnpm run typecheck
