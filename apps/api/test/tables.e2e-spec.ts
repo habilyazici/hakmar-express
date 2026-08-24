@@ -17,6 +17,9 @@ describe('Tables (e2e)', () => {
   let subcategoryId: number;
   let brandCode: string;
   let productId: number;
+  let priceId2025: number;
+  let priceId2026: number;
+  let costId: number;
   let customerId: number;
   let cashierId: number;
   let receiptId: number;
@@ -57,6 +60,18 @@ describe('Tables (e2e)', () => {
       data: { name: 'T2 Product', brandCode, subcategoryId },
     });
     productId = product.id;
+    const price2025 = await prisma.productPrice.create({
+      data: { productId, year: 2025, unitPrice: 90 },
+    });
+    priceId2025 = price2025.id;
+    const price2026 = await prisma.productPrice.create({
+      data: { productId, year: 2026, unitPrice: 100 },
+    });
+    priceId2026 = price2026.id;
+    const cost = await prisma.productCost.create({
+      data: { productId, regionId, year: 2026, unitCost: 55 },
+    });
+    costId = cost.id;
     const customer = await prisma.customer.create({
       data: { firstName: 'T2', lastName: 'Customer', gender: 'M' },
     });
@@ -91,6 +106,9 @@ describe('Tables (e2e)', () => {
   afterAll(async () => {
     await prisma.receiptItem.deleteMany({ where: { receiptId } });
     await prisma.receipt.delete({ where: { id: receiptId } });
+    await prisma.productCost.delete({ where: { id: costId } });
+    await prisma.productPrice.delete({ where: { id: priceId2025 } });
+    await prisma.productPrice.delete({ where: { id: priceId2026 } });
     await prisma.product.delete({ where: { id: productId } });
     await prisma.brand.delete({ where: { code: brandCode } });
     await prisma.subcategory.delete({ where: { id: subcategoryId } });
@@ -167,5 +185,59 @@ describe('Tables (e2e)', () => {
       .query({ entity: 'not-a-real-entity' })
       .set('Authorization', `Bearer ${accessToken}`);
     expect(res.status).toBe(400);
+  });
+
+  it('computes YoY price change via the LAG window function', async () => {
+    const res = await agent(app)
+      .get('/api/v1/tables/price-cost-history')
+      .query({ limit: 1000 })
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const rows = res.body.data as {
+      productName: string;
+      year: number;
+      price: string;
+      cost: string;
+      previousYearPrice: string | null;
+      priceChangePct: string | null;
+    }[];
+    const y2025 = rows.find(
+      (r) => r.productName === 'T2 Product' && r.year === 2025,
+    );
+    const y2026 = rows.find(
+      (r) => r.productName === 'T2 Product' && r.year === 2026,
+    );
+
+    expect(y2025).toBeDefined();
+    expect(Number(y2025!.price)).toBe(90);
+    expect(y2025!.previousYearPrice).toBeNull();
+    expect(y2025!.priceChangePct).toBeNull();
+
+    expect(y2026).toBeDefined();
+    expect(Number(y2026!.price)).toBe(100);
+    expect(Number(y2026!.cost)).toBe(55);
+    expect(Number(y2026!.previousYearPrice)).toBe(90);
+    // (100 - 90) / 90 * 100 = 11.11...
+    expect(Number(y2026!.priceChangePct)).toBeCloseTo(11.11, 1);
+  });
+
+  it('computes avg cost per region x product from product_costs', async () => {
+    const res = await agent(app)
+      .get('/api/v1/tables/region-cost')
+      .query({ limit: 1000 })
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const rows = res.body.data as {
+      regionName: string;
+      productName: string;
+      avgCost: string;
+    }[];
+    const ours = rows.find(
+      (r) => r.regionName === 'T2 Region' && r.productName === 'T2 Product',
+    );
+    expect(ours).toBeDefined();
+    expect(Number(ours!.avgCost)).toBe(55);
   });
 });

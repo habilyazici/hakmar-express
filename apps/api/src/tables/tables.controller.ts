@@ -2,6 +2,7 @@ import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { Controller, Get, Query, UseInterceptors } from '@nestjs/common';
 import { Role } from '../../generated/prisma/enums';
 import { Roles } from '../common/decorators/roles.decorator';
+import { LimitQueryDto } from './dto/limit-query.dto';
 import { TableRankingQueryDto } from './dto/table-ranking-query.dto';
 import { TablesService } from './tables.service';
 
@@ -15,5 +16,17 @@ export class TablesController {
   @CacheTTL(10 * 60 * 1000)
   getRanking(@Query() query: TableRankingQueryDto) {
     return this.tables.getRanking(query.entity, query.limit ?? 20);
+  }
+
+  @Get('price-cost-history')
+  @CacheTTL(15 * 60 * 1000)
+  getPriceCostHistory(@Query() query: LimitQueryDto) {
+    return this.tables.getPriceCostHistory(query.limit ?? 50);
+  }
+
+  @Get('region-cost')
+  @CacheTTL(15 * 60 * 1000)
+  getRegionCost(@Query() query: LimitQueryDto) {
+    return this.tables.getRegionCost(query.limit ?? 50);
   }
 }

@@ -45,4 +45,20 @@ describe('TablesService', () => {
     expect(query.sql).not.toContain('42');
     expect(query.values).toContain(42);
   });
+
+  it('getPriceCostHistory queries product_prices with a LAG window function', async () => {
+    await service.getPriceCostHistory(50);
+
+    const query = lastQuery(prisma.$queryRaw);
+    expect(query.sql).toContain('product_prices');
+    expect(query.sql).toContain('LAG(');
+  });
+
+  it('getRegionCost joins product_costs to regions and products', async () => {
+    await service.getRegionCost(50);
+
+    const query = lastQuery(prisma.$queryRaw);
+    expect(query.sql).toContain('FROM product_costs');
+    expect(query.sql).toContain('JOIN regions');
+  });
 });

@@ -111,4 +111,65 @@ export class TablesService {
       LIMIT ${limit}
     `);
   }
+
+  /**
+   * Replaces legacy product-price-change + price-cost-comparison: per
+   * product-year, price/cost/margin plus year-over-year price change via
+   * a LAG window function. Cost is averaged across regions per year since
+   * product_costs varies by (product, region, year) but this table is
+   * product-over-time, not product-over-region.
+   */
+  getPriceCostHistory(limit: number) {
+    return this.prisma.$queryRaw(Prisma.sql`
+      SELECT "productId", "productName", year, price, cost, margin, "previousYearPrice",
+        CASE
+          WHEN "previousYearPrice" IS NULL OR "previousYearPrice" = 0 THEN NULL
+          ELSE ROUND(((price - "previousYearPrice") / "previousYearPrice") * 100, 2)
+        END AS "priceChangePct"
+      FROM (
+        SELECT p.id AS "productId",
+               p.product_name AS "productName",
+               pp.year,
+               pp.unit_price AS price,
+               COALESCE(cost_avg.avg_cost, 0) AS cost,
+               (pp.unit_price - COALESCE(cost_avg.avg_cost, 0)) AS margin,
+               LAG(pp.unit_price) OVER (PARTITION BY p.id ORDER BY pp.year) AS "previousYearPrice"
+        FROM products p
+        JOIN product_prices pp ON pp.product_id = p.id
+        LEFT JOIN (
+          SELECT product_id, year, AVG(unit_cost) AS avg_cost
+          FROM product_costs
+          GROUP BY product_id, year
+        ) cost_avg ON cost_avg.product_id = p.id AND cost_avg.year = pp.year
+      ) sub
+      ORDER BY "productName", year
+      LIMIT ${limit}
+    `);
+  }
+
+  /**
+   * Replaces legacy region-cost-analysis + region-cost-comparison: avg cost,
+   * total sales and total profit per (region, product). Sales/profit are
+   * tied to the exact product_costs row via receipt_items.cost_id, not just
+   * matched by product+region, since a product can have several cost rows
+   * across years for the same region.
+   */
+  getRegionCost(limit: number) {
+    return this.prisma.$queryRaw(Prisma.sql`
+      SELECT reg.id AS "regionId",
+             reg.name AS "regionName",
+             p.id AS "productId",
+             p.product_name AS "productName",
+             COALESCE(AVG(pc.unit_cost), 0) AS "avgCost",
+             COALESCE(SUM(ri.total_price), 0) AS "totalSales",
+             COALESCE(SUM(ri.total_margin), 0) AS "totalProfit"
+      FROM product_costs pc
+      JOIN regions reg ON reg.id = pc.region_id
+      JOIN products p ON p.id = pc.product_id
+      LEFT JOIN receipt_items ri ON ri.cost_id = pc.id
+      GROUP BY reg.id, reg.name, p.id, p.product_name
+      ORDER BY reg.name, p.product_name
+      LIMIT ${limit}
+    `);
+  }
 }
