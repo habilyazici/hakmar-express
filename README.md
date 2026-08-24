@@ -81,6 +81,7 @@ session family.
 | Geo | `/geo/regions`, `/cities`, `/branches` — list/read/create/update/delete; `GET /geo/geojson/city` for the map boundaries |
 | People | `/people/customers`, `/cashiers` — list/read/create/update/delete |
 | Users | `/users` (SUPERADMIN only) — list/read/create/update/delete, `PATCH /users/:id/password`; `PATCH /users/me/password` for any role |
+| Transactions | `GET /transactions/receipts` (paginated, filter by date range / branch / cashier / customer), `GET /transactions/receipts/:id` with its line items |
 
 Master-data routes are read-open to every role and write-restricted to ADMIN
 and above, decided per method rather than per controller. List endpoints are
@@ -114,7 +115,8 @@ code. See `apps/api/prisma/data/README.md` for the boundary data's source
 and licence.
 
 Web exposes a page per module — Dashboard, Charts, Tables, KDS Analiz,
-Tahmin, Yönetim and Kullanıcılar — behind a shared navigation shell. Heavier
+Tahmin, İşlemler, Yönetim and Kullanıcılar — behind a shared navigation
+shell. Heavier
 routes are lazy-loaded so the charting library stays out of the initial
 bundle.
 
@@ -125,7 +127,7 @@ would not have been on the server: the API validates every write regardless,
 so a mistake in the table produces a 400 the form displays rather than an
 unvalidated write.
 
-Not yet started: transaction listing.
+Every feature area of the legacy application now has a replacement.
 
 Decisions carried from the audit: Postgres over MySQL, Redis over the legacy
 ad-hoc cache, Prisma over Sequelize, the raw-SQL admin tool dropped in favor

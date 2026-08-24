@@ -25,6 +25,11 @@ const TablesPage = lazy(() =>
 const KdsPage = lazy(() =>
   import('./features/kds/KdsPage').then((m) => ({ default: m.KdsPage })),
 );
+const TransactionsPage = lazy(() =>
+  import('./features/transactions/TransactionsPage').then((m) => ({
+    default: m.TransactionsPage,
+  })),
+);
 const AdminPage = lazy(() =>
   import('./features/admin/AdminPage').then((m) => ({ default: m.AdminPage })),
 );
@@ -93,6 +98,7 @@ export default function App() {
                 <Route path="/tables" element={<TablesPage />} />
                 <Route path="/kds" element={<KdsPage />} />
                 <Route path="/forecast" element={<ForecastPage />} />
+                <Route path="/transactions" element={<TransactionsPage />} />
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path="/users" element={<UsersPage />} />
               </Route>

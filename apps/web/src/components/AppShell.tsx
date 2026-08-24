@@ -7,6 +7,7 @@ const NAV = [
   { to: '/tables', label: 'Tablolar' },
   { to: '/kds', label: 'KDS Analiz' },
   { to: '/forecast', label: 'Tahmin' },
+  { to: '/transactions', label: 'İşlemler' },
   { to: '/admin', label: 'Yönetim' },
   { to: '/users', label: 'Kullanıcılar' },
 ];
