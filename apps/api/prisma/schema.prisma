@@ -1,4 +1,4 @@
-// Hakmar Express v2 — Prisma schema
+// Hakmar Express — Prisma schema
 // Domain model carried over from the legacy Sequelize/MySQL app, formalized
 // into real version-controlled migrations. See /Users/habil/.claude/plans
 // for the Milestone 1 plan this was generated from.

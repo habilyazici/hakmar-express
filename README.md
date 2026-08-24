@@ -1,4 +1,4 @@
-# Hakmar Express v2
+# Hakmar Express
 
 Ground-up rewrite of the Hakmar Express retail analytics dashboard, replacing
 the legacy Express/Sequelize/MySQL app. See the audit report and Milestone 1

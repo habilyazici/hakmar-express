@@ -1,7 +1,7 @@
 {
   "name": "api",
   "version": "0.0.1",
-  "description": "Hakmar Express v2 API - NestJS + Prisma + PostgreSQL retail analytics backend.",
+  "description": "Hakmar Express API - NestJS + Prisma + PostgreSQL retail analytics backend.",
   "author": "Habil Yazici",
   "private": true,
   "license": "UNLICENSED",

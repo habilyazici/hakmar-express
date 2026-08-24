@@ -1,5 +1,5 @@
 {
-  "name": "hakmar-express-v2",
+  "name": "hakmar-express",
   "private": true,
   "packageManager": "pnpm@11.23.0",
   "scripts": {
