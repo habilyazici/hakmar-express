@@ -173,6 +173,19 @@ describe('Charts (e2e)', () => {
     expect(Number(jan2.profit)).toBe(120);
   });
 
+  it('serializes the orders metric (COUNT-backed, ::int cast) without 500ing', async () => {
+    const res = await agent(app)
+      .get('/api/v1/charts/trend')
+      .query({ granularity: 'day', metrics: 'orders' })
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const rows = res.body.data as { period: string; orders: number }[];
+    const jan1 = rows.find((r) => r.period.startsWith('2026-01-01'));
+    expect(jan1).toBeDefined();
+    expect(jan1!.orders).toBe(1);
+  });
+
   it('applies cumulative correctly on top of the same data', async () => {
     const res = await agent(app)
       .get('/api/v1/charts/trend')

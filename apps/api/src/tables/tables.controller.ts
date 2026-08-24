@@ -1,0 +1,19 @@
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
+import { Controller, Get, Query, UseInterceptors } from '@nestjs/common';
+import { Role } from '../../generated/prisma/enums';
+import { Roles } from '../common/decorators/roles.decorator';
+import { TableRankingQueryDto } from './dto/table-ranking-query.dto';
+import { TablesService } from './tables.service';
+
+@Controller('tables')
+@Roles(Role.SUPERADMIN, Role.ADMIN, Role.ANALYST)
+@UseInterceptors(CacheInterceptor)
+export class TablesController {
+  constructor(private readonly tables: TablesService) {}
+
+  @Get('ranking')
+  @CacheTTL(10 * 60 * 1000)
+  getRanking(@Query() query: TableRankingQueryDto) {
+    return this.tables.getRanking(query.entity, query.limit ?? 20);
+  }
+}

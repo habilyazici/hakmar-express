@@ -14,7 +14,11 @@ const TREND_METRIC_EXPR: Record<TrendMetric, Prisma.Sql> = {
   [TrendMetric.COST]: Prisma.sql`COALESCE(SUM(ri.total_cost), 0)`,
   [TrendMetric.PROFIT]: Prisma.sql`COALESCE(SUM(ri.total_margin), 0)`,
   [TrendMetric.QUANTITY]: Prisma.sql`COALESCE(SUM(ri.quantity), 0)`,
-  [TrendMetric.ORDERS]: Prisma.sql`COUNT(DISTINCT r.id)`,
+  // Postgres COUNT() returns BIGINT, which node-pg/Prisma surface as a JS
+  // BigInt — JSON.stringify (and therefore both the HTTP response and the
+  // Redis cache serializer) cannot serialize that. Casting to ::int avoids
+  // it; receipt counts will never approach the int4 ceiling.
+  [TrendMetric.ORDERS]: Prisma.sql`COUNT(DISTINCT r.id)::int`,
 };
 
 const TREND_GRANULARITY_EXPR: Record<TrendGranularity, Prisma.Sql> = {
