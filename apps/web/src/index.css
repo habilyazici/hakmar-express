@@ -40,8 +40,9 @@
 
   --positive: light-dark(#15803d, #4ade80);
   --negative: light-dark(#b91c1c, #f87171);
+  --warning: light-dark(#b45309, #fbbf24);
 
-  --radius: 8px;
+  --radius: 10px;
   --radius-sm: 6px;
   --shadow-sm: 0 1px 2px light-dark(rgba(16, 24, 40, 0.06), rgba(0, 0, 0, 0.4));
   --shadow-md: 0 4px 12px light-dark(rgba(16, 24, 40, 0.08), rgba(0, 0, 0, 0.45));
@@ -106,69 +107,194 @@ p {
 
 /* ---------- app shell ---------- */
 
-.shell__bar {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
-  padding: 10px 20px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 10;
+/*
+ * A rail rather than a top bar: eight destinations plus the account block
+ * and the theme switch had outgrown one horizontal row, wrapping to two
+ * lines well before the viewport got narrow.
+ */
+.shell {
+  display: grid;
+  /* minmax(0, ...) or a wide table's intrinsic width pushes the column open
+     and the whole page scrolls sideways instead of the table. */
+  grid-template-columns: 248px minmax(0, 1fr);
+  min-height: 100svh;
 }
 
-.shell__brand {
+.sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100svh;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 14px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+
+.sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 20px;
+}
+
+.sidebar__mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.sidebar__wordmark {
   font-weight: 600;
   letter-spacing: -0.01em;
   white-space: nowrap;
 }
 
-.shell__nav {
+.sidebar__nav {
   display: flex;
+  flex-direction: column;
   gap: 2px;
-  flex-wrap: wrap;
   flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
-.shell__link {
-  padding: 6px 12px;
+.sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   text-decoration: none;
   font-size: 0.875rem;
   white-space: nowrap;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
 }
 
-.shell__link:hover {
+/* The glyph sits back until the row matters, so the labels lead the scan. */
+.sidebar__link .icon {
+  flex: none;
+  opacity: 0.7;
+}
+
+.sidebar__link:hover {
   color: var(--text);
   background: var(--bg);
 }
 
-.shell__link--active {
-  color: var(--accent-fg);
-  background: var(--accent);
+.sidebar__link:hover .icon,
+.sidebar__link--active .icon {
+  opacity: 1;
 }
 
-.shell__link--active:hover {
+.sidebar__link--active {
+  color: var(--accent-fg);
+  background: var(--accent);
+  font-weight: 500;
+}
+
+.sidebar__link--active:hover {
   color: var(--accent-fg);
   background: var(--accent-hover);
 }
 
-.shell__user {
+.sidebar__footer {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 10px;
-  flex-wrap: wrap;
+  padding-top: 14px;
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.sidebar__account {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.sidebar__username {
+  font-size: 0.875rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar__role {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.shell__main {
+  min-width: 0;
+}
+
+/* Narrow enough that the rail costs more width than it earns: back to a bar. */
+@media (max-width: 900px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar__brand {
+    padding: 0;
+  }
+
+  .sidebar__nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .sidebar__footer {
+    flex-direction: row;
+    align-items: center;
+    padding-top: 0;
+    margin-top: 0;
+    border-top: none;
+  }
 }
 
 /* ---------- layout primitives ---------- */
 
 .page {
-  max-width: 1040px;
+  max-width: 1440px;
   margin: 0 auto;
-  padding: 24px 20px 48px;
+  padding: 28px 32px 56px;
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 20px 16px 40px;
+  }
 }
 
 .centered-page {
@@ -198,31 +324,27 @@ p {
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  padding-bottom: 16px;
-  margin-bottom: 24px;
+  padding-bottom: 18px;
+  margin-bottom: 28px;
   border-bottom: 1px solid var(--border);
 }
 
 .page-title {
-  font-size: 1.375rem;
-  letter-spacing: -0.01em;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
 }
 
 .section {
-  margin-bottom: 32px;
+  margin-bottom: 36px;
 }
 
 .section-title {
   font-size: 1rem;
+  letter-spacing: -0.01em;
   margin-bottom: 12px;
 }
 
 .muted {
-  color: var(--text-muted);
-  font-size: 0.875rem;
-}
-
-.user-chip {
   color: var(--text-muted);
   font-size: 0.875rem;
 }
@@ -233,22 +355,42 @@ p {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 20px;
-  box-shadow: var(--shadow-sm);
+  padding: 22px;
 }
 
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 14px;
 }
 
 .stat-card {
+  position: relative;
+  overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 14px 16px;
+  padding: 16px 18px;
   box-shadow: var(--shadow-sm);
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+/* A rule rather than a full accent border: enough to group the row as one
+   band of figures without competing with the value for attention. */
+.stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--accent);
+  opacity: 0.55;
+}
+
+.stat-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
 }
 
 .stat-card__label {
@@ -258,13 +400,14 @@ p {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-muted);
-  margin-bottom: 6px;
+  margin-bottom: 7px;
 }
 
 .stat-card__value {
   display: block;
-  font-size: 1.375rem;
+  font-size: 1.625rem;
   font-weight: 600;
+  letter-spacing: -0.02em;
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
@@ -416,6 +559,15 @@ p {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-muted);
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.table tbody tr {
+  transition: background 0.1s ease;
+}
+
+.table tbody tr:hover {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
 
 .table tbody tr:last-child th,
@@ -561,9 +713,9 @@ select.input {
 }
 
 .tag--warn {
-  background: color-mix(in srgb, #b45309 16%, transparent);
-  color: #b45309;
-  border-color: color-mix(in srgb, #b45309 35%, transparent);
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
+  color: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 35%, transparent);
 }
 
 .tag--bad {
@@ -627,15 +779,8 @@ select.input {
 /* ---------- choropleth map ---------- */
 
 :root {
-  --map-empty: #e8ebef;
-  --map-stroke: #ffffff;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --map-empty: #232a32;
-    --map-stroke: #12151a;
-  }
+  --map-empty: light-dark(#e8ebef, #232a32);
+  --map-stroke: light-dark(#ffffff, #12151a);
 }
 
 .map__svg {
