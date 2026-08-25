@@ -113,6 +113,83 @@ parameterized ones. Every parameter that reaches SQL is validated against an
 enum first and then used only as a key into a lookup table of pre-written
 `Prisma.Sql` fragments — user input never becomes SQL text.
 
+## Architecture
+
+A modular monolith: one deployable API, cut into modules that own their part
+of the schema and talk to each other only through a declared surface.
+
+```
+apps/api/src/
+  common/            shared kernel — guards, filters, interceptors, CRUD base,
+                     the AuthenticatedUser shape. Imports no feature module.
+  prisma/ cache/ config/     infrastructure. Same restriction.
+  sales/             owns the receipts read model: the metric, granularity and
+                     dimension vocabulary, and the SQL that expresses it
+  auth/ users/ catalog/ geo/ people/ transactions/
+  dashboard/ charts/ tables/ kds/ spatial-forecast/     analytics over sales/
+packages/contracts/  the HTTP contract both sides compile against
+```
+
+Three rules, enforced by `eslint-plugin-boundaries` rather than by memory
+(`apps/api/eslint.config.mjs`):
+
+1. The shared kernel and the infrastructure modules may not import a feature
+   module. The dependency arrow only points inwards.
+2. A module reaches a neighbour through its `index.ts` and nothing else.
+   Everything a neighbour is meant to use is exported there; the rest is
+   private and can be changed without a search across the repo.
+3. `test/` is exempt — e2e suites build testing modules out of controllers,
+   which are an HTTP entry point rather than a module's public API.
+
+Try it: import `../sales/sales.sql` instead of `../sales`, or make `common/`
+import a module, and `pnpm lint` fails naming the boundary.
+
+### The sales read model
+
+Six modules query `receipts` and `receipt_items`. Rather than route every
+aggregate through one generic builder — their query shapes genuinely differ,
+and the indirection would buy nothing — `sales/sales.sql.ts` owns the
+*vocabulary*: the fact join, the five metric expressions, the seven period
+expressions and the seven dimension joins. Modules compose their own queries
+from those fragments. These expressions were written out by hand in
+twenty-two places across four services, on top of the two private lookup
+tables Charts kept for itself — so renaming a column meant finding all of
+them with grep, because the type system cannot see inside a template
+literal.
+
+Every fragment assumes the query aliases `receipts` as `r` and
+`receipt_items` as `ri`. That is the price of sharing them.
+
+### The API/web contract
+
+`@hakmar/contracts` holds the response shapes and the vocabularies that
+travel in query strings. Both apps compile against it, so a disagreement is
+a build failure rather than an empty column someone notices in production.
+
+The sales vocabulary is declared as TypeScript enums in the API and as string
+unions in the contract; `sales.model.ts` asserts at compile time that the two
+describe the same set, in both directions. Add a metric to one side only and
+the build fails naming the member and the side that is missing it.
+
+Where money and dates are involved the contract is parameterised over their
+representation (`SummaryDto<M = string>`): the API holds a Postgres numeric
+as a `Prisma.Decimal` and a date as a `Date`, and both become strings through
+JSON. Pretending otherwise is what makes a shared type decorative.
+
+Not everything is covered. The `/tables`, `/kds`, `/transactions` and
+`/spatial-forecast` row shapes still live beside the web hooks that consume
+them, because those endpoints build their result sets in raw SQL with no row
+type on the API side to check against — a shared type there would be enforced
+on one side only. Typing those queries is the next step.
+
+### Web
+
+`apps/web/src/features/<name>/queries.ts` owns every request that feature
+makes, including its cache keys; pages consume the hooks and never build a
+URL. A cache key that disagrees with the parameters actually sent shows stale
+data on one screen and is invisible on every other, which is only possible
+where the two are written out separately.
+
 ## Status
 
 Shipped: the cross-cutting NestJS architecture (guards/interceptors/filters,
