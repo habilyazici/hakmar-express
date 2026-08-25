@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma';
+import { SALES_METRIC_EXPR, SalesMetric } from '../sales';
 import { TableEntity } from './dto/table-ranking-query.dto';
 
 @Injectable()
@@ -46,9 +47,9 @@ export class TablesService {
       SELECT ca.id,
              (ca.first_name || ' ' || ca.last_name) AS name,
              br.branch_name AS "branchName",
-             COALESCE(SUM(ri.total_price), 0) AS "totalSales",
-             COUNT(DISTINCT r.id)::int AS "totalReceipts",
-             COALESCE(SUM(ri.total_margin), 0) AS "totalMargin"
+             ${SALES_METRIC_EXPR[SalesMetric.SALES]} AS "totalSales",
+             ${SALES_METRIC_EXPR[SalesMetric.ORDERS]} AS "totalReceipts",
+             ${SALES_METRIC_EXPR[SalesMetric.PROFIT]} AS "totalMargin"
       FROM cashiers ca
       JOIN branches br ON br.id = ca.branch_id
       LEFT JOIN receipts r ON r.cashier_id = ca.id
@@ -64,10 +65,10 @@ export class TablesService {
       SELECT br.id,
              br.branch_name AS name,
              ci.name AS "cityName",
-             COALESCE(SUM(ri.total_price), 0) AS "totalSales",
-             COUNT(DISTINCT r.id)::int AS "totalReceipts",
+             ${SALES_METRIC_EXPR[SalesMetric.SALES]} AS "totalSales",
+             ${SALES_METRIC_EXPR[SalesMetric.ORDERS]} AS "totalReceipts",
              COUNT(DISTINCT r.customer_id)::int AS "uniqueCustomers",
-             COALESCE(SUM(ri.total_margin), 0) AS "totalMargin"
+             ${SALES_METRIC_EXPR[SalesMetric.PROFIT]} AS "totalMargin"
       FROM branches br
       JOIN cities ci ON ci.id = br.city_id
       LEFT JOIN receipts r ON r.branch_id = br.id
@@ -83,9 +84,9 @@ export class TablesService {
       SELECT p.id,
              p.product_name AS name,
              b.brand_name AS "brandName",
-             COALESCE(SUM(ri.quantity), 0) AS "totalQuantity",
-             COALESCE(SUM(ri.total_price), 0) AS "totalSales",
-             COALESCE(SUM(ri.total_margin), 0) AS "totalMargin"
+             ${SALES_METRIC_EXPR[SalesMetric.QUANTITY]} AS "totalQuantity",
+             ${SALES_METRIC_EXPR[SalesMetric.SALES]} AS "totalSales",
+             ${SALES_METRIC_EXPR[SalesMetric.PROFIT]} AS "totalMargin"
       FROM products p
       JOIN brands b ON b.brand_code = p.brand_code
       LEFT JOIN receipt_items ri ON ri.product_id = p.id
@@ -99,8 +100,8 @@ export class TablesService {
     return this.prisma.$queryRaw(Prisma.sql`
       SELECT c.id,
              (c.first_name || ' ' || c.last_name) AS name,
-             COALESCE(SUM(ri.total_price), 0) AS "totalSpend",
-             COUNT(DISTINCT r.id)::int AS "totalReceipts",
+             ${SALES_METRIC_EXPR[SalesMetric.SALES]} AS "totalSpend",
+             ${SALES_METRIC_EXPR[SalesMetric.ORDERS]} AS "totalReceipts",
              MIN(r.receipt_date) AS "firstPurchase",
              MAX(r.receipt_date) AS "lastPurchase"
       FROM customers c
@@ -161,8 +162,8 @@ export class TablesService {
              p.id AS "productId",
              p.product_name AS "productName",
              COALESCE(AVG(pc.unit_cost), 0) AS "avgCost",
-             COALESCE(SUM(ri.total_price), 0) AS "totalSales",
-             COALESCE(SUM(ri.total_margin), 0) AS "totalProfit"
+             ${SALES_METRIC_EXPR[SalesMetric.SALES]} AS "totalSales",
+             ${SALES_METRIC_EXPR[SalesMetric.PROFIT]} AS "totalProfit"
       FROM product_costs pc
       JOIN regions reg ON reg.id = pc.region_id
       JOIN products p ON p.id = pc.product_id

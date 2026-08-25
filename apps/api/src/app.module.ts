@@ -3,24 +3,26 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
-import { AuthModule } from './auth/auth.module';
-import { CacheModule } from './cache/cache.module';
-import { CatalogModule } from './catalog/catalog.module';
-import { ChartsModule } from './charts/charts.module';
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
-import { validateEnv } from './config/env.validation';
-import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
-import { RolesGuard } from './common/guards/roles.guard';
-import { TransformInterceptor } from './common/interceptors/transform.interceptor';
-import { DashboardModule } from './dashboard/dashboard.module';
-import { GeoModule } from './geo/geo.module';
-import { KdsModule } from './kds/kds.module';
-import { PeopleModule } from './people/people.module';
-import { PrismaModule } from './prisma/prisma.module';
-import { SpatialForecastModule } from './spatial-forecast/spatial-forecast.module';
-import { TablesModule } from './tables/tables.module';
-import { TransactionsModule } from './transactions/transactions.module';
-import { UsersModule } from './users/users.module';
+import { AuthModule } from './auth';
+import { CacheModule } from './cache';
+import { CatalogModule } from './catalog';
+import { ChartsModule } from './charts';
+import {
+  AllExceptionsFilter,
+  JwtAuthGuard,
+  RolesGuard,
+  TransformInterceptor,
+} from './common';
+import { validateEnv } from './config';
+import { DashboardModule } from './dashboard';
+import { GeoModule } from './geo';
+import { KdsModule } from './kds';
+import { PeopleModule } from './people';
+import { PrismaModule } from './prisma';
+import { SpatialForecastModule } from './spatial-forecast';
+import { TablesModule } from './tables';
+import { TransactionsModule } from './transactions';
+import { UsersModule } from './users';
 
 @Module({
   imports: [

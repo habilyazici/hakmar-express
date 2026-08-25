@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { CrudService, type PrismaDelegate } from '../common/crud/crud.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { CrudService, type PrismaDelegate } from '../common';
+import { PrismaService } from '../prisma';
 
 @Injectable()
 export class RegionsService extends CrudService<unknown> {

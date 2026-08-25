@@ -4,8 +4,8 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import { Role } from '../../generated/prisma/enums';
-import { PrismaService } from '../prisma/prisma.service';
-import { AuthenticatedUser } from './types/authenticated-user.type';
+import { PrismaService } from '../prisma';
+import { AuthenticatedUser } from '../common';
 
 export interface TokenPair {
   accessToken: string;
@@ -93,10 +93,7 @@ export class AuthService {
     }
 
     if (existing.revokedAt) {
-      await this.prisma.refreshToken.updateMany({
-        where: { userId: existing.userId, revokedAt: null },
-        data: { revokedAt: new Date() },
-      });
+      await this.revokeAllSessions(existing.userId);
       throw new UnauthorizedException(
         'Refresh token reuse detected; all sessions revoked.',
       );
@@ -139,6 +136,24 @@ export class AuthService {
     const tokenHash = this.hashToken(refreshTokenPlain);
     await this.prisma.refreshToken.updateMany({
       where: { tokenHash, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  /**
+   * Ends every live session a user has.
+   *
+   * Public because Users needs it — an administrator resetting a password,
+   * deactivating an account or changing a role must not leave the affected
+   * session renewing itself. It stays *here* rather than being a
+   * `refreshToken.updateMany` inside UsersService: the refresh-token table
+   * is Auth's, and reuse detection above depends on revocation always going
+   * through one code path. A second module writing revokedAt directly is how
+   * that invariant quietly stops holding.
+   */
+  async revokeAllSessions(userId: number): Promise<void> {
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
   }

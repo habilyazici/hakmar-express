@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma';
+import { SALES_METRIC_EXPR, SalesMetric } from '../sales';
 import {
   DiscountScope,
   ForecastMetric,
@@ -307,9 +308,9 @@ export class SpatialForecastService {
              ci.region_id AS "regionId",
              EXTRACT(YEAR FROM r.receipt_date)::int AS year,
              EXTRACT(MONTH FROM r.receipt_date)::int AS month,
-             COALESCE(SUM(ri.quantity), 0) AS quantity,
-             COALESCE(SUM(ri.total_price), 0) AS sales,
-             COALESCE(SUM(ri.total_cost), 0) AS cost
+             ${SALES_METRIC_EXPR[SalesMetric.QUANTITY]} AS quantity,
+             ${SALES_METRIC_EXPR[SalesMetric.SALES]} AS sales,
+             ${SALES_METRIC_EXPR[SalesMetric.COST]} AS cost
       FROM receipt_items ri
       JOIN receipts r ON r.id = ri.receipt_id
       JOIN branches br ON br.id = r.branch_id

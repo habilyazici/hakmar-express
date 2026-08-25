@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma';
+import { SALES_METRIC_EXPR, SalesMetric } from '../sales';
 
 export interface AbcRow {
   id: number;
@@ -123,8 +124,8 @@ export class KdsService {
         SELECT c.id,
                (c.first_name || ' ' || c.last_name) AS name,
                MAX(r.receipt_date) AS last_purchase,
-               COUNT(DISTINCT r.id)::int AS frequency,
-               COALESCE(SUM(ri.total_price), 0) AS monetary
+               ${SALES_METRIC_EXPR[SalesMetric.ORDERS]} AS frequency,
+               ${SALES_METRIC_EXPR[SalesMetric.SALES]} AS monetary
         FROM customers c
         LEFT JOIN receipts r ON r.customer_id = c.id
         LEFT JOIN receipt_items ri ON ri.receipt_id = r.id

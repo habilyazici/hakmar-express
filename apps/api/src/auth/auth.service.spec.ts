@@ -5,7 +5,7 @@ import { Test } from '@nestjs/testing';
 import * as bcrypt from 'bcrypt';
 
 import { Role } from '../../generated/prisma/enums';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma';
 import { AuthService } from './auth.service';
 
 // bcrypt is a native addon whose exports are non-configurable, so jest.spyOn

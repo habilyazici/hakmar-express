@@ -7,30 +7,13 @@ import {
   IsIn,
   IsOptional,
 } from 'class-validator';
+import { SalesGranularity, SalesMetric } from '../../sales';
 
-export enum TrendGranularity {
-  DAY = 'day',
-  WEEK = 'week',
-  MONTH = 'month',
-  QUARTER = 'quarter',
-  YEAR = 'year',
-  WEEKDAY = 'weekday',
-  HOUR = 'hour',
-}
-
-export enum TrendMetric {
-  SALES = 'sales',
-  COST = 'cost',
-  PROFIT = 'profit',
-  QUANTITY = 'quantity',
-  ORDERS = 'orders',
-}
-
-const METRIC_VALUES = Object.values(TrendMetric);
+const METRIC_VALUES = Object.values(SalesMetric);
 
 export class TrendQueryDto {
-  @IsEnum(TrendGranularity)
-  granularity!: TrendGranularity;
+  @IsEnum(SalesGranularity)
+  granularity!: SalesGranularity;
 
   @IsArray()
   @ArrayMinSize(1)
@@ -43,7 +26,7 @@ export class TrendQueryDto {
   @Transform(({ value }: { value: string | string[] }) =>
     Array.isArray(value) ? value : value.split(','),
   )
-  metrics!: TrendMetric[];
+  metrics!: SalesMetric[];
 
   @IsOptional()
   @IsBoolean()

@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { Prisma } from '../../generated/prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma';
+import { SalesTotalsService } from '../sales';
 import { DashboardService } from './dashboard.service';
 import { Period } from './dto/period.enum';
 
@@ -26,6 +27,9 @@ describe('DashboardService', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         DashboardService,
+        // The real totals service over the mocked client, so these tests
+        // still exercise the aggregate rather than a stub of it.
+        SalesTotalsService,
         { provide: PrismaService, useValue: prisma },
       ],
     }).compile();

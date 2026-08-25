@@ -1,23 +1,34 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import type {
+  DailySummaryRow,
+  GeneralStatsDto,
+  MonthlySalesRow,
+  PerformanceDto,
+  SummaryDto,
+} from '@hakmar/contracts';
+import { PrismaService } from '../prisma';
+import {
+  SALES_FACT,
+  SALES_METRIC_EXPR,
+  SalesMetric,
+  SalesTotalsService,
+} from '../sales';
 import { Prisma } from '../../generated/prisma/client';
 import { PERIOD_DAYS, Period } from './dto/period.enum';
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly salesTotals: SalesTotalsService,
+  ) {}
 
-  async getSummary() {
-    const totals = await this.prisma.receiptItem.aggregate({
-      _sum: { totalPrice: true, totalMargin: true },
-    });
-    return {
-      totalSales: totals._sum.totalPrice ?? new Prisma.Decimal(0),
-      totalProfit: totals._sum.totalMargin ?? new Prisma.Decimal(0),
-    };
+  async getSummary(): Promise<SummaryDto<Prisma.Decimal>> {
+    const totals = await this.salesTotals.sum();
+    return { totalSales: totals.sales, totalProfit: totals.profit };
   }
 
-  async getGeneralStats() {
+  async getGeneralStats(): Promise<GeneralStatsDto<Prisma.Decimal>> {
     const [branches, customers, products, brands, receipts, cashiers, totals] =
       await Promise.all([
         this.prisma.branch.count(),
@@ -26,9 +37,7 @@ export class DashboardService {
         this.prisma.brand.count(),
         this.prisma.receipt.count(),
         this.prisma.cashier.count(),
-        this.prisma.receiptItem.aggregate({
-          _sum: { totalPrice: true, totalMargin: true },
-        }),
+        this.salesTotals.sum(),
       ]);
 
     return {
@@ -38,8 +47,8 @@ export class DashboardService {
       brands,
       receipts,
       cashiers,
-      totalSales: totals._sum.totalPrice ?? new Prisma.Decimal(0),
-      totalProfit: totals._sum.totalMargin ?? new Prisma.Decimal(0),
+      totalSales: totals.sales,
+      totalProfit: totals.profit,
     };
   }
 
@@ -47,7 +56,7 @@ export class DashboardService {
   // boundary (a 400, like every other bad parameter in this API), rather
   // than by a string lookup here that raised a 404 for what is a malformed
   // request, not a missing resource.
-  async getPerformance(period: Period) {
+  async getPerformance(period: Period): Promise<PerformanceDto> {
     const days = PERIOD_DAYS[period];
 
     // receiptDate is a DATE column (no time-of-day); Postgres compares it
@@ -84,30 +93,28 @@ export class DashboardService {
     };
   }
 
-  async getDailySummary() {
+  async getDailySummary(): Promise<DailySummaryRow<Prisma.Decimal, Date>[]> {
     return this.prisma.$queryRaw<
-      { day: Date; sales: Prisma.Decimal; profit: Prisma.Decimal }[]
+      DailySummaryRow<Prisma.Decimal, Date>[]
     >(Prisma.sql`
       SELECT r.receipt_date AS day,
-             COALESCE(SUM(ri.total_price), 0) AS sales,
-             COALESCE(SUM(ri.total_margin), 0) AS profit
-      FROM receipts r
-      JOIN receipt_items ri ON ri.receipt_id = r.id
+             ${SALES_METRIC_EXPR[SalesMetric.SALES]} AS sales,
+             ${SALES_METRIC_EXPR[SalesMetric.PROFIT]} AS profit
+      ${SALES_FACT}
       WHERE r.receipt_date >= (CURRENT_DATE - INTERVAL '30 days')
       GROUP BY r.receipt_date
       ORDER BY r.receipt_date ASC
     `);
   }
 
-  async getMonthlySales() {
+  async getMonthlySales(): Promise<MonthlySalesRow<Prisma.Decimal, Date>[]> {
     return this.prisma.$queryRaw<
-      { month: Date; sales: Prisma.Decimal; profit: Prisma.Decimal }[]
+      MonthlySalesRow<Prisma.Decimal, Date>[]
     >(Prisma.sql`
       SELECT date_trunc('month', r.receipt_date) AS month,
-             COALESCE(SUM(ri.total_price), 0) AS sales,
-             COALESCE(SUM(ri.total_margin), 0) AS profit
-      FROM receipts r
-      JOIN receipt_items ri ON ri.receipt_id = r.id
+             ${SALES_METRIC_EXPR[SalesMetric.SALES]} AS sales,
+             ${SALES_METRIC_EXPR[SalesMetric.PROFIT]} AS profit
+      ${SALES_FACT}
       GROUP BY date_trunc('month', r.receipt_date)
       ORDER BY month ASC
     `);
@@ -115,9 +122,8 @@ export class DashboardService {
 
   private async windowStats(start: Date, end: Date) {
     const [itemTotals, orders, distinctProducts] = await Promise.all([
-      this.prisma.receiptItem.aggregate({
-        where: { receipt: { receiptDate: { gte: start, lt: end } } },
-        _sum: { totalPrice: true, totalMargin: true },
+      this.salesTotals.sum({
+        receipt: { receiptDate: { gte: start, lt: end } },
       }),
       this.prisma.receipt.count({
         where: { receiptDate: { gte: start, lt: end } },
@@ -129,8 +135,8 @@ export class DashboardService {
       this.countDistinctProducts(start, end),
     ]);
 
-    const sales = toNumber(itemTotals._sum.totalPrice);
-    const profit = toNumber(itemTotals._sum.totalMargin);
+    const sales = Number(itemTotals.sales);
+    const profit = Number(itemTotals.profit);
 
     return {
       sales,
@@ -150,10 +156,6 @@ export class DashboardService {
     `);
     return row?.count ?? 0;
   }
-}
-
-function toNumber(value: Prisma.Decimal | null): number {
-  return value ? Number(value) : 0;
 }
 
 function percentChange(current: number, previous: number): number | null {

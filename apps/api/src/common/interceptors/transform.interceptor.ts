@@ -4,13 +4,13 @@ import {
   Injectable,
   NestInterceptor,
 } from '@nestjs/common';
+import type { ApiEnvelope } from '@hakmar/contracts';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
-export interface ApiResponse<T> {
-  success: true;
-  data: T;
-}
+/** Re-exported so the wire shape has exactly one definition, in the
+ *  package the web reads it from too. */
+export type ApiResponse<T> = ApiEnvelope<T>;
 
 /**
  * Registered globally (APP_INTERCEPTOR). Every successful response is

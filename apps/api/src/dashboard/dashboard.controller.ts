@@ -7,7 +7,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { Role } from '../../generated/prisma/enums';
-import { Roles } from '../common/decorators/roles.decorator';
+import { Roles } from '../common';
 import { DashboardService } from './dashboard.service';
 import { Period } from './dto/period.enum';
 

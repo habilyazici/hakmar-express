@@ -34,9 +34,4 @@ export class PaginationQueryDto {
   search?: string;
 }
 
-export interface Page<T> {
-  items: T[];
-  total: number;
-  limit: number;
-  offset: number;
-}
+export type { Page } from '@hakmar/contracts';

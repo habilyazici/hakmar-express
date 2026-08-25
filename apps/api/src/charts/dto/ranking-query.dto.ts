@@ -1,27 +1,27 @@
 import { Type } from 'class-transformer';
 import { IsEnum, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { SalesDimension, SalesMetric } from '../../sales';
 
-export enum RankingDimension {
-  BRAND = 'brand',
-  CITY = 'city',
-  BRANCH = 'branch',
-  REGION = 'region',
-  CATEGORY = 'category',
-  CASHIER = 'cashier',
-  PRODUCT = 'product',
-}
+/**
+ * Ranking exposes three of the five sales metrics. Ordering branches by
+ * "orders" or "cost" would be meaningful, but it has never been part of
+ * this endpoint's contract — pinning the list here means widening it stays
+ * a deliberate edit rather than something that follows silently from
+ * SalesMetric gaining a member.
+ */
+export const RANKING_METRICS = [
+  SalesMetric.SALES,
+  SalesMetric.QUANTITY,
+  SalesMetric.PROFIT,
+] as const;
 
-export enum RankingMetric {
-  SALES = 'sales',
-  QUANTITY = 'quantity',
-  PROFIT = 'profit',
-}
+export type RankingMetric = (typeof RANKING_METRICS)[number];
 
 export class RankingQueryDto {
-  @IsEnum(RankingDimension)
-  dimension!: RankingDimension;
+  @IsEnum(SalesDimension)
+  dimension!: SalesDimension;
 
-  @IsEnum(RankingMetric)
+  @IsIn(RANKING_METRICS)
   metric!: RankingMetric;
 
   @IsOptional()

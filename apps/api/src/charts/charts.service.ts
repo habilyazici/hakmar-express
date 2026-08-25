@@ -1,131 +1,51 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma';
+import {
+  SALES_DIMENSION,
+  SALES_FACT,
+  SALES_METRIC_EXPR,
+  SALES_PERIOD_EXPR,
+  SalesDimension,
+  SalesGranularity,
+  SalesMetric,
+  SalesTotalsService,
+} from '../sales';
+import type {
+  BucketRow,
+  GeographicSalesRow,
+  HeatmapRow,
+  RankingRow,
+  TrendRow,
+  WaterfallStep,
+} from '@hakmar/contracts';
 import { HeatmapType } from './dto/heatmap-query.dto';
-import { RankingDimension, RankingMetric } from './dto/ranking-query.dto';
-import { TrendGranularity, TrendMetric } from './dto/trend-query.dto';
+import { RankingMetric } from './dto/ranking-query.dto';
 
-// Only these five whitelisted expressions can ever appear in a query's
-// SELECT list — dto.metrics is validated against the TrendMetric enum
-// before it ever reaches here (see trend-query.dto.ts), so there is no
-// path from unvalidated user input to raw SQL text, unlike the legacy
-// app's generic CRUD engine.
-const TREND_METRIC_EXPR: Record<TrendMetric, Prisma.Sql> = {
-  [TrendMetric.SALES]: Prisma.sql`COALESCE(SUM(ri.total_price), 0)`,
-  [TrendMetric.COST]: Prisma.sql`COALESCE(SUM(ri.total_cost), 0)`,
-  [TrendMetric.PROFIT]: Prisma.sql`COALESCE(SUM(ri.total_margin), 0)`,
-  [TrendMetric.QUANTITY]: Prisma.sql`COALESCE(SUM(ri.quantity), 0)`,
-  // Postgres COUNT() returns BIGINT, which node-pg/Prisma surface as a JS
-  // BigInt — JSON.stringify (and therefore both the HTTP response and the
-  // Redis cache serializer) cannot serialize that. Casting to ::int avoids
-  // it; receipt counts will never approach the int4 ceiling.
-  [TrendMetric.ORDERS]: Prisma.sql`COUNT(DISTINCT r.id)::int`,
-};
-
-const TREND_GRANULARITY_EXPR: Record<TrendGranularity, Prisma.Sql> = {
-  [TrendGranularity.DAY]: Prisma.sql`r.receipt_date`,
-  [TrendGranularity.WEEK]: Prisma.sql`date_trunc('week', r.receipt_date)`,
-  [TrendGranularity.MONTH]: Prisma.sql`date_trunc('month', r.receipt_date)`,
-  [TrendGranularity.QUARTER]: Prisma.sql`date_trunc('quarter', r.receipt_date)`,
-  [TrendGranularity.YEAR]: Prisma.sql`date_trunc('year', r.receipt_date)`,
-  [TrendGranularity.WEEKDAY]: Prisma.sql`EXTRACT(ISODOW FROM r.receipt_date)`,
-  [TrendGranularity.HOUR]: Prisma.sql`EXTRACT(HOUR FROM r.receipt_time)`,
-};
-
-interface DimensionConfig {
-  idExpr: Prisma.Sql;
-  nameExpr: Prisma.Sql;
-  joins: Prisma.Sql;
-}
-
-// Same whitelisting principle as above: dto.dimension is a validated
-// RankingDimension enum value, so this lookup is the only thing that ever
-// decides which JOINs run — user input selects a key, never SQL text.
-const RANKING_DIMENSION_CONFIG: Record<RankingDimension, DimensionConfig> = {
-  [RankingDimension.BRAND]: {
-    idExpr: Prisma.sql`b.brand_code`,
-    nameExpr: Prisma.sql`b.brand_name`,
-    joins: Prisma.sql`JOIN products p ON p.id = ri.product_id JOIN brands b ON b.brand_code = p.brand_code`,
-  },
-  [RankingDimension.CITY]: {
-    idExpr: Prisma.sql`ci.id`,
-    nameExpr: Prisma.sql`ci.name`,
-    joins: Prisma.sql`JOIN branches br ON br.id = r.branch_id JOIN cities ci ON ci.id = br.city_id`,
-  },
-  [RankingDimension.BRANCH]: {
-    idExpr: Prisma.sql`br.id`,
-    nameExpr: Prisma.sql`br.branch_name`,
-    joins: Prisma.sql`JOIN branches br ON br.id = r.branch_id`,
-  },
-  [RankingDimension.REGION]: {
-    idExpr: Prisma.sql`reg.id`,
-    nameExpr: Prisma.sql`reg.name`,
-    joins: Prisma.sql`JOIN branches br ON br.id = r.branch_id JOIN cities ci ON ci.id = br.city_id JOIN regions reg ON reg.id = ci.region_id`,
-  },
-  [RankingDimension.CATEGORY]: {
-    idExpr: Prisma.sql`cat.id`,
-    nameExpr: Prisma.sql`cat.name`,
-    joins: Prisma.sql`JOIN products p ON p.id = ri.product_id JOIN subcategories sc ON sc.id = p.subcategory_id JOIN categories cat ON cat.id = sc.category_id`,
-  },
-  [RankingDimension.CASHIER]: {
-    idExpr: Prisma.sql`ca.id`,
-    nameExpr: Prisma.sql`ca.first_name || ' ' || ca.last_name`,
-    joins: Prisma.sql`JOIN cashiers ca ON ca.id = r.cashier_id`,
-  },
-  [RankingDimension.PRODUCT]: {
-    idExpr: Prisma.sql`p.id`,
-    nameExpr: Prisma.sql`p.product_name`,
-    joins: Prisma.sql`JOIN products p ON p.id = ri.product_id`,
-  },
-};
-
-const RANKING_METRIC_EXPR: Record<RankingMetric, Prisma.Sql> = {
-  [RankingMetric.SALES]: Prisma.sql`COALESCE(SUM(ri.total_price), 0)`,
-  [RankingMetric.QUANTITY]: Prisma.sql`COALESCE(SUM(ri.quantity), 0)`,
-  [RankingMetric.PROFIT]: Prisma.sql`COALESCE(SUM(ri.total_margin), 0)`,
-};
-
-export interface TrendRow {
-  period: unknown;
-  [metric: string]: unknown;
-}
-
-export interface RankingRow {
-  id: string | number;
-  name: string;
-  value: string;
-}
-
-export interface HeatmapRow {
-  x: string | number;
-  y: string | number;
-  value: string | number;
-}
-
-export interface BucketRow {
-  bucket: string;
-  count: number;
-}
-
-export interface WaterfallStep {
-  step: 'sales' | 'cost' | 'profit';
-  value: number;
-}
-
-export interface GeographicSalesRow {
-  id: number;
-  name: string;
-  latitude: number;
-  longitude: number;
-  sales: string;
-}
+/**
+ * Response shapes are defined once, in @hakmar/contracts, and re-exported
+ * here so this module still reads as the owner of its own API. If a query's
+ * SELECT list stops matching the shape the web renders, that is now a
+ * compile error on this side rather than an empty column on the other.
+ */
+export type {
+  BucketRow,
+  GeographicSalesRow,
+  HeatmapRow,
+  RankingRow,
+  TrendRow,
+  WaterfallStep,
+} from '@hakmar/contracts';
 
 const BASKET_SIZE_ORDER = ['small', 'medium', 'large', 'xlarge'];
 const LOYALTY_TIER_ORDER = ['new', 'occasional', 'regular', 'loyal'];
 
 @Injectable()
 export class ChartsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly salesTotals: SalesTotalsService,
+  ) {}
 
   /**
    * Replaces ~18 near-identical legacy endpoints (sales-trend, daily-sales,
@@ -136,22 +56,21 @@ export class ChartsService {
    * generic engine.
    */
   async getTrend(
-    granularity: TrendGranularity,
-    metrics: TrendMetric[],
+    granularity: SalesGranularity,
+    metrics: SalesMetric[],
     cumulative: boolean,
   ): Promise<TrendRow[]> {
-    const periodExpr = TREND_GRANULARITY_EXPR[granularity];
+    const periodExpr = SALES_PERIOD_EXPR[granularity];
     const metricSelects = Prisma.join(
       metrics.map(
-        (m) => Prisma.sql`${TREND_METRIC_EXPR[m]} AS ${Prisma.raw(m)}`,
+        (m) => Prisma.sql`${SALES_METRIC_EXPR[m]} AS ${Prisma.raw(m)}`,
       ),
       ', ',
     );
 
     const rows = await this.prisma.$queryRaw<TrendRow[]>(Prisma.sql`
       SELECT ${periodExpr} AS period, ${metricSelects}
-      FROM receipts r
-      JOIN receipt_items ri ON ri.receipt_id = r.id
+      ${SALES_FACT}
       GROUP BY ${periodExpr}
       ORDER BY ${periodExpr} ASC
     `);
@@ -165,19 +84,18 @@ export class ChartsService {
    * parameterized top/bottom-N query.
    */
   async getRanking(
-    dimension: RankingDimension,
+    dimension: SalesDimension,
     metric: RankingMetric,
     limit: number,
     order: 'asc' | 'desc',
   ): Promise<RankingRow[]> {
-    const { idExpr, nameExpr, joins } = RANKING_DIMENSION_CONFIG[dimension];
-    const metricExpr = RANKING_METRIC_EXPR[metric];
+    const { idExpr, nameExpr, joins } = SALES_DIMENSION[dimension];
+    const metricExpr = SALES_METRIC_EXPR[metric];
     const orderSql = order === 'asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;
 
     return this.prisma.$queryRaw<RankingRow[]>(Prisma.sql`
       SELECT ${idExpr} AS id, ${nameExpr} AS name, ${metricExpr} AS value
-      FROM receipt_items ri
-      JOIN receipts r ON r.id = ri.receipt_id
+      ${SALES_FACT}
       ${joins}
       GROUP BY ${idExpr}, ${nameExpr}
       ORDER BY value ${orderSql}
@@ -195,7 +113,7 @@ export class ChartsService {
    */
   async getHeatmap(
     type: HeatmapType,
-    metric: TrendMetric,
+    metric: SalesMetric,
   ): Promise<HeatmapRow[]> {
     switch (type) {
       case HeatmapType.WEEKDAY_HOUR:
@@ -207,27 +125,25 @@ export class ChartsService {
     }
   }
 
-  private weekdayHourHeatmap(metric: TrendMetric): Promise<HeatmapRow[]> {
-    const metricExpr = TREND_METRIC_EXPR[metric];
+  private weekdayHourHeatmap(metric: SalesMetric): Promise<HeatmapRow[]> {
+    const metricExpr = SALES_METRIC_EXPR[metric];
     return this.prisma.$queryRaw<HeatmapRow[]>(Prisma.sql`
       SELECT EXTRACT(ISODOW FROM r.receipt_date)::int AS x,
              EXTRACT(HOUR FROM r.receipt_time)::int AS y,
              ${metricExpr} AS value
-      FROM receipts r
-      JOIN receipt_items ri ON ri.receipt_id = r.id
+      ${SALES_FACT}
       GROUP BY x, y
       ORDER BY x, y
     `);
   }
 
-  private yearMonthHeatmap(metric: TrendMetric): Promise<HeatmapRow[]> {
-    const metricExpr = TREND_METRIC_EXPR[metric];
+  private yearMonthHeatmap(metric: SalesMetric): Promise<HeatmapRow[]> {
+    const metricExpr = SALES_METRIC_EXPR[metric];
     return this.prisma.$queryRaw<HeatmapRow[]>(Prisma.sql`
       SELECT EXTRACT(YEAR FROM r.receipt_date)::int AS x,
              EXTRACT(MONTH FROM r.receipt_date)::int AS y,
              ${metricExpr} AS value
-      FROM receipts r
-      JOIN receipt_items ri ON ri.receipt_id = r.id
+      ${SALES_FACT}
       GROUP BY x, y
       ORDER BY x, y
     `);
@@ -261,8 +177,7 @@ export class ChartsService {
         END AS bucket
         FROM (
           SELECT SUM(ri.total_price) AS basket_total
-          FROM receipts r
-          JOIN receipt_items ri ON ri.receipt_id = r.id
+          ${SALES_FACT}
           GROUP BY r.id
         ) per_receipt
       ) bucketed
@@ -273,13 +188,11 @@ export class ChartsService {
 
   /** Replaces legacy profit-waterfall: sales -> cost -> net profit as three steps. */
   async getProfitWaterfall(): Promise<WaterfallStep[]> {
-    const totals = await this.prisma.receiptItem.aggregate({
-      _sum: { totalPrice: true, totalCost: true, totalMargin: true },
-    });
+    const totals = await this.salesTotals.sum();
     return [
-      { step: 'sales', value: Number(totals._sum.totalPrice ?? 0) },
-      { step: 'cost', value: -Number(totals._sum.totalCost ?? 0) },
-      { step: 'profit', value: Number(totals._sum.totalMargin ?? 0) },
+      { step: 'sales', value: Number(totals.sales) },
+      { step: 'cost', value: -Number(totals.cost) },
+      { step: 'profit', value: Number(totals.profit) },
     ];
   }
 
@@ -330,7 +243,7 @@ export class ChartsService {
 
   private applyCumulative(
     rows: TrendRow[],
-    metrics: TrendMetric[],
+    metrics: SalesMetric[],
   ): TrendRow[] {
     const running: Record<string, number> = {};
     return rows.map((row) => {

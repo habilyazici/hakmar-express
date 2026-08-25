@@ -12,9 +12,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { Role } from '../../generated/prisma/enums';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { Public } from '../common/decorators/public.decorator';
-import { Roles } from '../common/decorators/roles.decorator';
+import { CurrentUser, Public, Roles, type AuthenticatedUser } from '../common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { LOGIN_THROTTLE, SESSION_THROTTLE } from './login-throttle';
@@ -23,7 +21,6 @@ import {
   clearRefreshCookie,
   setRefreshCookie,
 } from './refresh-cookie';
-import type { AuthenticatedUser } from './types/authenticated-user.type';
 
 /**
  * @types/cookie-parser already augments Express's Request with `cookies`,

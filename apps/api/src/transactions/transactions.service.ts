@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
-import type { Page } from '../common/crud/pagination.dto';
-import { PrismaService } from '../prisma/prisma.service';
+import type { Page } from '../common';
+import { PrismaService } from '../prisma';
+import { SALES_METRIC_EXPR, SalesMetric } from '../sales';
 import type { ReceiptQueryDto } from './dto/receipt-query.dto';
 
 export interface ReceiptListRow {
@@ -47,8 +48,8 @@ export class TransactionsService {
                (ca.first_name || ' ' || ca.last_name) AS "cashierName",
                (c.first_name || ' ' || c.last_name) AS "customerName",
                COUNT(ri.id)::int AS "itemCount",
-               COALESCE(SUM(ri.total_price), 0) AS total,
-               COALESCE(SUM(ri.total_margin), 0) AS margin
+               ${SALES_METRIC_EXPR[SalesMetric.SALES]} AS total,
+               ${SALES_METRIC_EXPR[SalesMetric.PROFIT]} AS margin
         FROM receipts r
         JOIN branches br ON br.id = r.branch_id
         JOIN cashiers ca ON ca.id = r.cashier_id
@@ -89,8 +90,8 @@ export class TransactionsService {
              (ca.first_name || ' ' || ca.last_name) AS "cashierName",
              (c.first_name || ' ' || c.last_name) AS "customerName",
              COUNT(ri.id)::int AS "itemCount",
-             COALESCE(SUM(ri.total_price), 0) AS total,
-             COALESCE(SUM(ri.total_margin), 0) AS margin
+             ${SALES_METRIC_EXPR[SalesMetric.SALES]} AS total,
+             ${SALES_METRIC_EXPR[SalesMetric.PROFIT]} AS margin
       FROM receipts r
       JOIN branches br ON br.id = r.branch_id
       JOIN cashiers ca ON ca.id = r.cashier_id

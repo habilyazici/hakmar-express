@@ -1,5 +1,5 @@
 import { IsEnum, IsOptional } from 'class-validator';
-import { TrendMetric } from './trend-query.dto';
+import { SalesMetric } from '../../sales';
 
 export enum HeatmapType {
   WEEKDAY_HOUR = 'weekday-hour',
@@ -13,6 +13,6 @@ export class HeatmapQueryDto {
 
   /** Ignored for region-category, which is always avg unit cost. */
   @IsOptional()
-  @IsEnum(TrendMetric)
-  metric?: TrendMetric = TrendMetric.SALES;
+  @IsEnum(SalesMetric)
+  metric?: SalesMetric = SalesMetric.SALES;
 }

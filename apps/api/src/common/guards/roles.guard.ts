@@ -8,7 +8,7 @@ import type { Request } from 'express';
 import { Role } from '../../../generated/prisma/enums';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { ROLES_KEY } from '../decorators/roles.decorator';
-import type { AuthenticatedUser } from '../../auth/types/authenticated-user.type';
+import type { AuthenticatedUser } from '../types/authenticated-user.type';
 
 interface RequestWithUser extends Request {
   user?: AuthenticatedUser;

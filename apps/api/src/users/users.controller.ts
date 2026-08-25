@@ -12,10 +12,12 @@ import {
   Query,
 } from '@nestjs/common';
 import { Role } from '../../generated/prisma/enums';
-import type { AuthenticatedUser } from '../auth/types/authenticated-user.type';
-import { PaginationQueryDto } from '../common/crud/pagination.dto';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { Roles } from '../common/decorators/roles.decorator';
+import {
+  type AuthenticatedUser,
+  PaginationQueryDto,
+  CurrentUser,
+  Roles,
+} from '../common';
 import {
   ChangeOwnPasswordDto,
   CreateUserDto,

@@ -1,9 +1,13 @@
 import { Test } from '@nestjs/testing';
 import { ChartsService } from './charts.service';
 import { HeatmapType } from './dto/heatmap-query.dto';
-import { RankingDimension, RankingMetric } from './dto/ranking-query.dto';
-import { TrendGranularity, TrendMetric } from './dto/trend-query.dto';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma';
+import {
+  SalesDimension,
+  SalesGranularity,
+  SalesMetric,
+  SalesTotalsService,
+} from '../sales';
 
 describe('ChartsService', () => {
   let service: ChartsService;
@@ -18,7 +22,11 @@ describe('ChartsService', () => {
       receiptItem: { aggregate: jest.fn() },
     };
     const moduleRef = await Test.createTestingModule({
-      providers: [ChartsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        ChartsService,
+        SalesTotalsService,
+        { provide: PrismaService, useValue: prisma },
+      ],
     }).compile();
     service = moduleRef.get(ChartsService);
   });
@@ -31,8 +39,8 @@ describe('ChartsService', () => {
       ]);
 
       const result = await service.getTrend(
-        TrendGranularity.DAY,
-        [TrendMetric.SALES],
+        SalesGranularity.DAY,
+        [SalesMetric.SALES],
         false,
       );
 
@@ -50,8 +58,8 @@ describe('ChartsService', () => {
       ]);
 
       const result = await service.getTrend(
-        TrendGranularity.DAY,
-        [TrendMetric.SALES, TrendMetric.PROFIT],
+        SalesGranularity.DAY,
+        [SalesMetric.SALES, SalesMetric.PROFIT],
         true,
       );
 
@@ -66,8 +74,8 @@ describe('ChartsService', () => {
       prisma.$queryRaw.mockResolvedValue([{ period: '2026-01-01' }]);
 
       const result = await service.getTrend(
-        TrendGranularity.DAY,
-        [TrendMetric.SALES],
+        SalesGranularity.DAY,
+        [SalesMetric.SALES],
         true,
       );
 
@@ -82,8 +90,8 @@ describe('ChartsService', () => {
       ]);
 
       const result = await service.getRanking(
-        RankingDimension.BRANCH,
-        RankingMetric.SALES,
+        SalesDimension.BRANCH,
+        SalesMetric.SALES,
         10,
         'desc',
       );
@@ -101,7 +109,7 @@ describe('ChartsService', () => {
     ])('routes %s to a query mentioning %s', async (type, expectedFragment) => {
       prisma.$queryRaw.mockResolvedValue([]);
 
-      await service.getHeatmap(type, TrendMetric.SALES);
+      await service.getHeatmap(type, SalesMetric.SALES);
 
       expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
       const calls = prisma.$queryRaw.mock.calls as unknown[][];
@@ -114,7 +122,7 @@ describe('ChartsService', () => {
 
       const result = await service.getHeatmap(
         HeatmapType.WEEKDAY_HOUR,
-        TrendMetric.SALES,
+        SalesMetric.SALES,
       );
 
       expect(result).toEqual([{ x: 1, y: 2, value: '10' }]);

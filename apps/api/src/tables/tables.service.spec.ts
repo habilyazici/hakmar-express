@@ -1,5 +1,5 @@
 import { Test } from '@nestjs/testing';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma';
 import { TableEntity } from './dto/table-ranking-query.dto';
 import { TablesService } from './tables.service';
 

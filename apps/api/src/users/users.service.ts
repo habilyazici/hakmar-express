@@ -6,8 +6,9 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { Role } from '../../generated/prisma/enums';
-import type { Page } from '../common/crud/pagination.dto';
-import { PrismaService } from '../prisma/prisma.service';
+import type { Page } from '../common';
+import { AuthService } from '../auth';
+import { PrismaService } from '../prisma';
 import type { CreateUserDto, UpdateUserDto } from './dto/users.dto';
 
 const BCRYPT_ROUNDS = 12;
@@ -37,7 +38,10 @@ export type PublicUser = {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auth: AuthService,
+  ) {}
 
   async list(
     limit: number,
@@ -126,7 +130,7 @@ export class UsersService {
     // every request; that is a deliberate trade, not an oversight.
     const roleChanged = dto.role !== undefined && dto.role !== target.role;
     if (dto.isActive === false || roleChanged) {
-      await this.revokeSessions(id);
+      await this.auth.revokeAllSessions(id);
     }
 
     return user;
@@ -141,7 +145,7 @@ export class UsersService {
     // An administrator resetting someone's password is very often a response
     // to that account being compromised, so existing sessions must not
     // survive it.
-    await this.revokeSessions(id);
+    await this.auth.revokeAllSessions(id);
   }
 
   async changeOwnPassword(
@@ -202,12 +206,5 @@ export class UsersService {
         'This is the last active superadmin; promote another one first.',
       );
     }
-  }
-
-  private async revokeSessions(userId: number) {
-    await this.prisma.refreshToken.updateMany({
-      where: { userId, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
   }
 }

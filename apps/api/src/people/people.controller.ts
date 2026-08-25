@@ -13,9 +13,11 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { Role } from '../../generated/prisma/enums';
-import { PaginationQueryDto } from '../common/crud/pagination.dto';
-import { Roles } from '../common/decorators/roles.decorator';
-import { CacheInvalidationInterceptor } from '../common/interceptors/cache-invalidation.interceptor';
+import {
+  PaginationQueryDto,
+  Roles,
+  CacheInvalidationInterceptor,
+} from '../common';
 import {
   CreateCashierDto,
   CreateCustomerDto,

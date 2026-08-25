@@ -8,10 +8,12 @@ import {
   Query,
 } from '@nestjs/common';
 import { Role } from '../../generated/prisma/enums';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { Roles } from '../common/decorators/roles.decorator';
-import type { AuthenticatedUser } from '../auth/types/authenticated-user.type';
-import { LimitQueryDto } from '../tables/dto/limit-query.dto';
+import {
+  CurrentUser,
+  Roles,
+  type AuthenticatedUser,
+  LimitQueryDto,
+} from '../common';
 import { ForecastRequestDto } from './dto/forecast-request.dto';
 import { SpatialForecastService } from './spatial-forecast.service';
 

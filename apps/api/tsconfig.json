@@ -13,7 +13,9 @@
     "target": "ES2023",
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": "./",
+    // No baseUrl. Nothing imports non-relatively, and with one set,
+    // tsc emitted declarations referring to `node_modules/@hakmar/...`
+    // — a baseUrl-relative path that is not a resolvable specifier.
     "incremental": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,

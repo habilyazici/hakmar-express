@@ -8,7 +8,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { Role } from '../../generated/prisma/enums';
-import { Roles } from '../common/decorators/roles.decorator';
+import { Roles } from '../common';
 import { ReceiptQueryDto } from './dto/receipt-query.dto';
 import { TransactionsService } from './transactions.service';
 
