@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import type { Page, Role } from '@hakmar/contracts';
+import type { AdminUserDto, CreateUserBody, Page } from '@hakmar/contracts';
 import { apiClient } from '../../lib/api-client';
 import { useApiQuery } from '../../lib/query';
 import type { ResourceDef } from './resource-types';
@@ -62,28 +62,11 @@ export { PAGE_SIZE };
 
 // -------------------------------------------------------------------- users
 
-export interface User {
-  id: number;
-  username: string;
-  fullName: string;
-  email: string | null;
-  jobTitle: string | null;
-  role: Role;
-  isActive: boolean;
-  lastLogin: string | null;
-}
-
-export interface NewUser {
-  username: string;
-  password: string;
-  fullName: string;
-  email?: string;
-  jobTitle?: string;
-  role: Role;
-}
+/** The account shape and the create body, as the API defines them. */
+export type { AdminUserDto as User, CreateUserBody as NewUser };
 
 export function useUsers(enabled: boolean) {
-  return useApiQuery<Page<User>>(
+  return useApiQuery<Page<AdminUserDto>>(
     ['users', 'list'],
     '/users',
     { limit: 200 },
@@ -96,7 +79,7 @@ export function useInvalidateUsers() {
   return () => void queryClient.invalidateQueries({ queryKey: ['users'] });
 }
 
-export function createUser(body: NewUser) {
+export function createUser(body: CreateUserBody) {
   return apiClient.post('/users', body);
 }
 

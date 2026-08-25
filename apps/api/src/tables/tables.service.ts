@@ -1,8 +1,34 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma';
+import type {
+  BranchRankingRow,
+  CashierRankingRow,
+  CustomerRankingRow,
+  PriceHistoryRow,
+  ProductRankingRow,
+  RegionCostRow,
+  TableRankingRow,
+} from '@hakmar/contracts';
 import { SALES_METRIC_EXPR, SalesMetric } from '../sales';
 import { TableEntity } from './dto/table-ranking-query.dto';
+
+/**
+ * These queries were the last ones with no row type at all: `$queryRaw`
+ * with no generic returns `unknown`, so a SELECT list that stopped matching
+ * what the web renders was nobody's compile error. The shapes come from
+ * @hakmar/contracts, parameterised over `Date` where the driver hands back
+ * one for a DATE column.
+ */
+export type CustomerRanking = CustomerRankingRow<Date>;
+export type RankingRow = TableRankingRow<Date>;
+export type {
+  BranchRankingRow,
+  CashierRankingRow,
+  PriceHistoryRow,
+  ProductRankingRow,
+  RegionCostRow,
+};
 
 @Injectable()
 export class TablesService {
@@ -29,7 +55,7 @@ export class TablesService {
    * an empty table never hits it because zero matching rows means zero
    * BigInts to serialize, not a row containing the BigInt zero).
    */
-  async getRanking(entity: TableEntity, limit: number) {
+  async getRanking(entity: TableEntity, limit: number): Promise<RankingRow[]> {
     switch (entity) {
       case TableEntity.CASHIER:
         return this.cashierRanking(limit);
@@ -42,8 +68,8 @@ export class TablesService {
     }
   }
 
-  private cashierRanking(limit: number) {
-    return this.prisma.$queryRaw(Prisma.sql`
+  private cashierRanking(limit: number): Promise<CashierRankingRow[]> {
+    return this.prisma.$queryRaw<CashierRankingRow[]>(Prisma.sql`
       SELECT ca.id,
              (ca.first_name || ' ' || ca.last_name) AS name,
              br.branch_name AS "branchName",
@@ -60,8 +86,8 @@ export class TablesService {
     `);
   }
 
-  private branchRanking(limit: number) {
-    return this.prisma.$queryRaw(Prisma.sql`
+  private branchRanking(limit: number): Promise<BranchRankingRow[]> {
+    return this.prisma.$queryRaw<BranchRankingRow[]>(Prisma.sql`
       SELECT br.id,
              br.branch_name AS name,
              ci.name AS "cityName",
@@ -79,8 +105,8 @@ export class TablesService {
     `);
   }
 
-  private productRanking(limit: number) {
-    return this.prisma.$queryRaw(Prisma.sql`
+  private productRanking(limit: number): Promise<ProductRankingRow[]> {
+    return this.prisma.$queryRaw<ProductRankingRow[]>(Prisma.sql`
       SELECT p.id,
              p.product_name AS name,
              b.brand_name AS "brandName",
@@ -96,8 +122,8 @@ export class TablesService {
     `);
   }
 
-  private customerRanking(limit: number) {
-    return this.prisma.$queryRaw(Prisma.sql`
+  private customerRanking(limit: number): Promise<CustomerRanking[]> {
+    return this.prisma.$queryRaw<CustomerRanking[]>(Prisma.sql`
       SELECT c.id,
              (c.first_name || ' ' || c.last_name) AS name,
              ${SALES_METRIC_EXPR[SalesMetric.SALES]} AS "totalSpend",
@@ -120,8 +146,8 @@ export class TablesService {
    * product_costs varies by (product, region, year) but this table is
    * product-over-time, not product-over-region.
    */
-  getPriceCostHistory(limit: number) {
-    return this.prisma.$queryRaw(Prisma.sql`
+  getPriceCostHistory(limit: number): Promise<PriceHistoryRow[]> {
+    return this.prisma.$queryRaw<PriceHistoryRow[]>(Prisma.sql`
       SELECT "productId", "productName", year, price, cost, margin, "previousYearPrice",
         CASE
           WHEN "previousYearPrice" IS NULL OR "previousYearPrice" = 0 THEN NULL
@@ -155,8 +181,8 @@ export class TablesService {
    * matched by product+region, since a product can have several cost rows
    * across years for the same region.
    */
-  getRegionCost(limit: number) {
-    return this.prisma.$queryRaw(Prisma.sql`
+  getRegionCost(limit: number): Promise<RegionCostRow[]> {
+    return this.prisma.$queryRaw<RegionCostRow[]>(Prisma.sql`
       SELECT reg.id AS "regionId",
              reg.name AS "regionName",
              p.id AS "productId",

@@ -1,3 +1,9 @@
+import type {
+  DiscountScope as DiscountScopeContract,
+  ForecastMetric as ForecastMetricContract,
+  MapType as MapTypeContract,
+} from '@hakmar/contracts';
+import type { Assert, SameMembers, ValuesOf } from '../../common';
 import { Type } from 'class-transformer';
 import {
   IsEnum,
@@ -7,6 +13,16 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
+
+export type _MapTypeMatches = Assert<
+  SameMembers<ValuesOf<MapType>, MapTypeContract>
+>;
+export type _MetricMatches = Assert<
+  SameMembers<ValuesOf<ForecastMetric>, ForecastMetricContract>
+>;
+export type _ScopeMatches = Assert<
+  SameMembers<ValuesOf<DiscountScope>, DiscountScopeContract>
+>;
 
 export enum MapType {
   CITY = 'city',

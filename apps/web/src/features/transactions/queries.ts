@@ -1,37 +1,17 @@
-import type { Page } from '@hakmar/contracts';
+import type {
+  Page,
+  ReceiptDetail,
+  ReceiptListRow,
+} from '@hakmar/contracts';
 import { useApiQuery } from '../../lib/query';
 import { useReferenceList } from '../../lib/reference-query';
 
-/** See the note in ../tables/queries.ts on why these row types are declared
- *  here rather than in @hakmar/contracts. */
-
-export interface ReceiptRow {
-  id: number;
-  receiptDate: string;
-  receiptTime: string;
-  branchId: number;
-  branchName: string;
-  cashierName: string;
-  customerName: string;
-  itemCount: number;
-  total: string;
-  margin: string;
-}
-
-export interface ReceiptItem {
-  id: number;
-  productId: number;
-  productName: string;
-  brandName: string;
-  quantity: string;
-  totalPrice: string;
-  totalCost: string;
-  totalMargin: string;
-}
-
-export interface ReceiptDetail extends ReceiptRow {
-  items: ReceiptItem[];
-}
+/** Row shapes come from @hakmar/contracts. */
+export type {
+  ReceiptDetail,
+  ReceiptItemRow,
+  ReceiptListRow,
+} from '@hakmar/contracts';
 
 /** Something with a display name, as the filter dropdowns need it. */
 export interface Named {
@@ -53,7 +33,7 @@ export interface ReceiptFilters {
 }
 
 export function useReceipts(filters: ReceiptFilters) {
-  return useApiQuery<Page<ReceiptRow>>(
+  return useApiQuery<Page<ReceiptListRow>>(
     ['transactions', 'receipts', filters],
     '/transactions/receipts',
     filters,

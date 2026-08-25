@@ -5,41 +5,27 @@ import { PrismaService } from '../prisma';
 import { SALES_METRIC_EXPR, SalesMetric } from '../sales';
 import type { ReceiptQueryDto } from './dto/receipt-query.dto';
 
-export interface ReceiptListRow {
-  id: number;
-  receiptDate: Date;
-  receiptTime: Date;
-  branchId: number;
-  branchName: string;
-  cashierName: string;
-  customerName: string;
-  itemCount: number;
-  total: string;
-  margin: string;
-}
+/**
+ * The wire shapes live in @hakmar/contracts; here they are parameterised
+ * over `Date`, because that is what the driver returns for a DATE or TIME
+ * column before JSON turns it into a string.
+ */
+import type { ReceiptListRow, ReceiptItemRow } from '@hakmar/contracts';
 
-export interface ReceiptItemRow {
-  id: number;
-  productId: number;
-  productName: string;
-  brandName: string;
-  quantity: string;
-  totalPrice: string;
-  totalCost: string;
-  totalMargin: string;
-}
+export type ReceiptRow = ReceiptListRow<Date>;
+export type { ReceiptItemRow };
 
 @Injectable()
 export class TransactionsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listReceipts(query: ReceiptQueryDto): Promise<Page<ReceiptListRow>> {
+  async listReceipts(query: ReceiptQueryDto): Promise<Page<ReceiptRow>> {
     const limit = query.limit ?? 50;
     const offset = query.offset ?? 0;
     const where = this.buildWhere(query);
 
     const [rows, countRows] = await Promise.all([
-      this.prisma.$queryRaw<ReceiptListRow[]>(Prisma.sql`
+      this.prisma.$queryRaw<ReceiptRow[]>(Prisma.sql`
         SELECT r.id,
                r.receipt_date AS "receiptDate",
                r.receipt_time AS "receiptTime",
@@ -81,7 +67,7 @@ export class TransactionsService {
   }
 
   async getReceipt(id: number) {
-    const [header] = await this.prisma.$queryRaw<ReceiptListRow[]>(Prisma.sql`
+    const [header] = await this.prisma.$queryRaw<ReceiptRow[]>(Prisma.sql`
       SELECT r.id,
              r.receipt_date AS "receiptDate",
              r.receipt_time AS "receiptTime",

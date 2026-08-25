@@ -9,61 +9,15 @@ import {
   integer,
   signedPercent,
 } from '../../lib/format';
+import type {
+  ForecastMetric,
+  GeoJsonPayload,
+  ForecastRunResult,
+} from '@hakmar/contracts';
 import { runForecast, useCityGeoJson } from './queries';
 import { TurkeyMap, type FeatureCollection, type MapValue } from './TurkeyMap';
 
-type Metric = 'quantity' | 'sales' | 'cost' | 'profit';
-
-interface MetricValues {
-  quantity: number;
-  sales: number;
-  cost: number;
-  profit: number;
-}
-
-interface GeoJsonPayload {
-  dataType: string;
-  version: number;
-  data: FeatureCollection;
-}
-
-interface AreaForecast {
-  id: number;
-  name: string;
-  plateCode: number | null;
-  regionName: string | null;
-  forecast: MetricValues;
-  baseline: MetricValues;
-  changePct: Record<Metric, number | null>;
-  method: 'regression' | 'mean';
-  rSquared: number | null;
-}
-
-interface ForecastResult {
-  runId: number;
-  params: {
-    mapType: 'city' | 'region';
-    metric: Metric;
-    periodMonths: number;
-    discountPct: number;
-  };
-  model: {
-    monthsOfHistory: number;
-    areasModeled: number;
-    areasFallback: number;
-    meanRSquared: number | null;
-    discountShare: number;
-  };
-  totals: {
-    forecast: MetricValues;
-    baseline: MetricValues;
-    changePct: Record<Metric, number | null>;
-  };
-  areas: AreaForecast[];
-  generatedAt: string;
-}
-
-const METRIC_LABELS: Record<Metric, string> = {
+const METRIC_LABELS: Record<ForecastMetric, string> = {
   quantity: 'Miktar',
   sales: 'Satış',
   cost: 'Maliyet',
@@ -132,7 +86,7 @@ function TotalsCard({
   );
 }
 
-function toMapValues(result: ForecastResult): Map<number, MapValue> {
+function toMapValues(result: ForecastRunResult): Map<number, MapValue> {
   const metric = result.params.metric;
   const isMoney = metric !== 'quantity';
   const values = new Map<number, MapValue>();
@@ -151,17 +105,17 @@ function toMapValues(result: ForecastResult): Map<number, MapValue> {
 
 export function ForecastPage() {
   const [mapType, setMapType] = useState<'city' | 'region'>('city');
-  const [metric, setMetric] = useState<Metric>('sales');
+  const [metric, setMetric] = useState<ForecastMetric>('sales');
   const [periodMonths, setPeriodMonths] = useState(6);
   const [discountPct, setDiscountPct] = useState(0);
   const [costChangePct, setCostChangePct] = useState(0);
   const [purchasingPowerPct, setPurchasingPowerPct] = useState(0);
 
-  const geojson = useCityGeoJson<GeoJsonPayload>();
+  const geojson = useCityGeoJson<GeoJsonPayload<FeatureCollection>>();
 
   const mutation = useMutation({
     mutationFn: () =>
-      runForecast<ForecastResult>({
+      runForecast({
         mapType,
         metric,
         periodMonths,
@@ -212,7 +166,7 @@ export function ForecastPage() {
             <div className="field">
               <span className="field__label">Sıralama metriği</span>
               <div className="btn-group" role="group" aria-label="Metrik">
-                {(Object.keys(METRIC_LABELS) as Metric[]).map((m) => (
+                {(Object.keys(METRIC_LABELS) as ForecastMetric[]).map((m) => (
                   <button
                     key={m}
                     type="button"

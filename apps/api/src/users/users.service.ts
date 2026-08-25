@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import type { AdminUserDto } from '@hakmar/contracts';
 import { Role } from '../../generated/prisma/enums';
 import type { Page } from '../common';
 import { AuthService } from '../auth';
@@ -32,9 +33,13 @@ const PUBLIC_FIELDS = {
   updatedAt: true,
 } as const;
 
-export type PublicUser = {
-  [K in keyof typeof PUBLIC_FIELDS]: unknown;
-};
+/**
+ * Was `{ [K in keyof typeof PUBLIC_FIELDS]: unknown }` — the field names
+ * were checked and every value was `unknown`, so nothing downstream could
+ * be wrong about a user. This is the shape the web compiles against, with
+ * Date where the wire has a string.
+ */
+export type PublicUser = AdminUserDto<Date>;
 
 @Injectable()
 export class UsersService {

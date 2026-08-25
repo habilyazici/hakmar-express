@@ -1,5 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
+import type {
+  AreaForecast,
+  ForecastMethod,
+  ForecastResult,
+  MetricValues,
+} from '@hakmar/contracts';
 import { PrismaService } from '../prisma';
 import { SALES_METRIC_EXPR, SalesMetric } from '../sales';
 import {
@@ -34,55 +40,16 @@ type BaseMetric = (typeof BASE_METRICS)[number];
 /** Trend + two seasonal harmonics, so 5 features; fitOls needs featureCount+2 rows. */
 const MIN_OBSERVATIONS = 7;
 
-export type ForecastMethod = 'regression' | 'mean';
-
-export interface MetricValues {
-  quantity: number;
-  sales: number;
-  cost: number;
-  profit: number;
-}
-
-export interface AreaForecast {
-  id: number;
-  name: string;
-  plateCode: number | null;
-  regionId: number | null;
-  regionName: string | null;
-  forecast: MetricValues;
-  baseline: MetricValues;
-  changePct: Record<keyof MetricValues, number | null>;
-  method: ForecastMethod;
-  rSquared: number | null;
-}
-
-export interface ForecastResult {
-  params: {
-    mapType: MapType;
-    metric: ForecastMetric;
-    periodMonths: number;
-    discountPct: number;
-    discountScope: DiscountScope;
-    discountTargetId: number | null;
-    costChangePct: number;
-    purchasingPowerPct: number;
-  };
-  model: {
-    monthsOfHistory: number;
-    areasModeled: number;
-    areasFallback: number;
-    meanRSquared: number | null;
-    /** Share of revenue the discount actually applies to (1 for scope=all). */
-    discountShare: number;
-  };
-  totals: {
-    forecast: MetricValues;
-    baseline: MetricValues;
-    changePct: Record<keyof MetricValues, number | null>;
-  };
-  areas: AreaForecast[];
-  generatedAt: string;
-}
+/**
+ * Result shapes come from @hakmar/contracts, so the map the web draws and
+ * the model that fills it are checked against one definition.
+ */
+export type {
+  AreaForecast,
+  ForecastMethod,
+  ForecastResult,
+  MetricValues,
+} from '@hakmar/contracts';
 
 interface MonthlyRow {
   cityId: number;

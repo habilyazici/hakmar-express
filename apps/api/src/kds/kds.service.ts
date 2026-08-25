@@ -1,36 +1,25 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma';
+import type {
+  AbcRow,
+  DemandForecastRow,
+  MarketBasketRow,
+  RfmRow,
+} from '@hakmar/contracts';
 import { SALES_METRIC_EXPR, SalesMetric } from '../sales';
 
-export interface AbcRow {
-  id: number;
-  name: string;
-  revenue: string;
-  class: 'A' | 'B' | 'C';
-}
-
-export interface DemandForecastRow {
-  productId: number;
-  productName: string;
-  forecastQty: string;
-}
-
-export interface RfmRow {
-  id: number;
-  name: string;
-  recencyDays: number | null;
-  frequency: number;
-  monetary: string;
-  segment: 'Champions' | 'Loyal' | 'At Risk' | 'Lost';
-}
-
-export interface MarketBasketRow {
-  productId: number;
-  productName: string;
-  coCount: number;
-  confidencePct: string | null;
-}
+/**
+ * Response shapes come from @hakmar/contracts and are re-exported here, so
+ * this module still reads as the owner of its own API while the web
+ * compiles against the same definitions.
+ */
+export type {
+  AbcRow,
+  DemandForecastRow,
+  MarketBasketRow,
+  RfmRow,
+} from '@hakmar/contracts';
 
 @Injectable()
 export class KdsService {

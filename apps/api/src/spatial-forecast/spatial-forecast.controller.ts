@@ -7,6 +7,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import type { ForecastRunResult } from '@hakmar/contracts';
 import { Role } from '../../generated/prisma/enums';
 import {
   CurrentUser,
@@ -33,7 +34,7 @@ export class SpatialForecastController {
   async run(
     @Body() dto: ForecastRequestDto,
     @CurrentUser() user: AuthenticatedUser,
-  ) {
+  ): Promise<ForecastRunResult> {
     const result = await this.forecast.run(dto);
     const runId = await this.forecast.saveRun(result, user.sub);
     return { runId, ...result };

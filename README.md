@@ -176,11 +176,16 @@ representation (`SummaryDto<M = string>`): the API holds a Postgres numeric
 as a `Prisma.Decimal` and a date as a `Date`, and both become strings through
 JSON. Pretending otherwise is what makes a shared type decorative.
 
-Not everything is covered. The `/tables`, `/kds`, `/transactions` and
-`/spatial-forecast` row shapes still live beside the web hooks that consume
-them, because those endpoints build their result sets in raw SQL with no row
-type on the API side to check against — a shared type there would be enforced
-on one side only. Typing those queries is the next step.
+Every response the web reads is covered. `/tables` was the last holdout:
+its four ranking queries called `$queryRaw` with no generic at all, so a
+SELECT list that stopped matching what the web renders was nobody's compile
+error. They carry row types now, from the same file the web reads them from.
+
+What is deliberately not shared: the GeoJSON document inside
+`/geo/geojson/city` is a JSON column the API genuinely cannot describe, so
+`GeoJsonPayload<T>` leaves it `unknown` there and the map component that
+draws it supplies the shape. A parameter, rather than one side asserting for
+both.
 
 ### Web
 
