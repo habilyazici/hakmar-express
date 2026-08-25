@@ -13,6 +13,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@hakmar/contracts": "workspace:*",
     "@tanstack/react-query": "^5.102.0",
     "axios": "^1.19.0",
     "react": "^19.2.8",
