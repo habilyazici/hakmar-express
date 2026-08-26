@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import type { AuthUser } from '@hakmar/contracts';
 import {
-  apiClient,
   registerUnauthorizedHandler,
   setAccessToken,
-  type ApiEnvelope,
 } from '../../lib/api-client';
 import { AuthContext } from './auth-context';
 import { decodeAccessToken } from './jwt';
-import type { AuthUser, LoginResponse, RefreshResponse } from './types';
+import { postLogin, postLogout, postRefresh } from './queries';
 
 /**
  * The refresh token no longer passes through JavaScript at all — it is an
@@ -17,11 +16,7 @@ import type { AuthUser, LoginResponse, RefreshResponse } from './types';
  */
 async function refresh(): Promise<string | null> {
   try {
-    const res = await apiClient.post<ApiEnvelope<RefreshResponse>>(
-      '/auth/refresh',
-      {},
-    );
-    const { accessToken } = res.data.data;
+    const { accessToken } = await postRefresh();
     setAccessToken(accessToken);
     return accessToken;
   } catch {
@@ -78,18 +73,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (username: string, password: string) => {
-    const res = await apiClient.post<ApiEnvelope<LoginResponse>>(
-      '/auth/login',
-      { username, password },
-    );
-    const { accessToken, user: authUser } = res.data.data;
+    const { accessToken, user: authUser } = await postLogin(username, password);
     setAccessToken(accessToken);
     setUser(authUser);
   }, []);
 
   const logout = useCallback(async () => {
     // The server clears the cookie; the client only drops in-memory state.
-    await apiClient.post('/auth/logout').catch(() => {});
+    await postLogout();
     setAccessToken(null);
     setUser(null);
   }, []);

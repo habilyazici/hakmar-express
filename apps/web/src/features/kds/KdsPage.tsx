@@ -1,36 +1,14 @@
 import { useState } from 'react';
 import { QueryState } from '../../components/QueryState';
 import { currency, decimal, integer, num, percent } from '../../lib/format';
-import { useApiQuery } from '../../lib/query';
-
-interface AbcRow {
-  id: number;
-  name: string;
-  revenue: string;
-  class: 'A' | 'B' | 'C';
-}
-
-interface DemandRow {
-  productId: number;
-  productName: string;
-  forecastQty: string;
-}
-
-interface RfmRow {
-  id: number;
-  name: string;
-  recencyDays: number | null;
-  frequency: number;
-  monetary: string;
-  segment: 'Champions' | 'Loyal' | 'At Risk' | 'Lost';
-}
-
-interface BasketRow {
-  productId: number;
-  productName: string;
-  coCount: number;
-  confidencePct: string | null;
-}
+import {
+  useAbcAnalysis,
+  useCustomerSegmentation,
+  useDemandForecast,
+  useMarketBasket,
+  type AbcRow,
+  type RfmRow,
+} from './queries';
 
 const SEGMENT_LABELS: Record<RfmRow['segment'], string> = {
   Champions: 'Şampiyonlar',
@@ -54,9 +32,7 @@ const ABC_TONE: Record<AbcRow['class'], string> = {
 
 function AbcPanel() {
   const [days, setDays] = useState(90);
-  const query = useApiQuery<AbcRow[]>(['kds', 'abc', days], '/kds/abc-analysis', {
-    days,
-  });
+  const query = useAbcAnalysis(days);
 
   return (
     <section className="section">
@@ -131,11 +107,7 @@ function DemandPanel({
 }: {
   onPickProduct: (id: number, name: string) => void;
 }) {
-  const query = useApiQuery<DemandRow[]>(
-    ['kds', 'demand-forecast'],
-    '/kds/demand-forecast',
-    { limit: 50 },
-  );
+  const query = useDemandForecast();
 
   return (
     <section className="section">
@@ -185,11 +157,7 @@ function DemandPanel({
 }
 
 function SegmentationPanel() {
-  const query = useApiQuery<RfmRow[]>(
-    ['kds', 'segmentation'],
-    '/kds/customer-segmentation',
-    { limit: 100 },
-  );
+  const query = useCustomerSegmentation();
 
   return (
     <section className="section">
@@ -245,12 +213,7 @@ function MarketBasketPanel({
 }: {
   product: { id: number; name: string } | null;
 }) {
-  const query = useApiQuery<BasketRow[]>(
-    ['kds', 'market-basket', product?.id],
-    '/kds/market-basket',
-    { productId: product?.id, limit: 20 },
-    product !== null,
-  );
+  const query = useMarketBasket(product?.id);
 
   return (
     <section className="section">

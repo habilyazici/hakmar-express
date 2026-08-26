@@ -8,7 +8,11 @@ import {
   num,
   signedPercent,
 } from '../../lib/format';
-import { useApiQuery } from '../../lib/query';
+import {
+  usePriceCostHistory,
+  useRegionCost,
+  useTableRanking,
+} from './queries';
 
 const ENTITIES = ['branch', 'cashier', 'product', 'customer'] as const;
 type Entity = (typeof ENTITIES)[number];
@@ -78,11 +82,7 @@ function renderCell(value: unknown, format: Cell['format']) {
 
 function RankingTable() {
   const [entity, setEntity] = useState<Entity>('branch');
-  const query = useApiQuery<Record<string, unknown>[]>(
-    ['tables', 'ranking', entity],
-    '/tables/ranking',
-    { entity, limit: 100 },
-  );
+  const query = useTableRanking(entity);
   const columns = COLUMNS[entity];
 
   return (
@@ -154,23 +154,8 @@ function RankingTable() {
   );
 }
 
-interface PriceHistoryRow {
-  productId: number;
-  productName: string;
-  year: number;
-  price: string;
-  cost: string;
-  margin: string;
-  previousYearPrice: string | null;
-  priceChangePct: string | null;
-}
-
 function PriceCostHistory() {
-  const query = useApiQuery<PriceHistoryRow[]>(
-    ['tables', 'price-cost-history'],
-    '/tables/price-cost-history',
-    { limit: 300 },
-  );
+  const query = usePriceCostHistory();
 
   return (
     <section className="section">
@@ -221,22 +206,8 @@ function PriceCostHistory() {
   );
 }
 
-interface RegionCostRow {
-  regionId: number;
-  regionName: string;
-  productId: number;
-  productName: string;
-  avgCost: string;
-  totalSales: string;
-  totalProfit: string;
-}
-
 function RegionCost() {
-  const query = useApiQuery<RegionCostRow[]>(
-    ['tables', 'region-cost'],
-    '/tables/region-cost',
-    { limit: 300 },
-  );
+  const query = useRegionCost();
 
   return (
     <section className="section">

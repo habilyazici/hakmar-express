@@ -1,5 +1,5 @@
 import { compactCurrency, WEEKDAYS_TR, monthName, num } from '../../lib/format';
-import type { HeatmapRow, HeatmapType } from './types';
+import type { HeatmapRow, HeatmapType } from '@hakmar/contracts';
 
 /**
  * Rendered as a real table rather than a chart library grid: the axes are

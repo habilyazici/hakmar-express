@@ -1,23 +1,19 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { QueryState } from '../../components/QueryState';
-import { apiClient } from '../../lib/api-client';
 import { apiErrorMessage } from '../../lib/api-error';
-import { fetchData } from '../../lib/query';
+import {
+  PAGE_SIZE,
+  createResource,
+  deleteResource,
+  updateResource,
+  useInvalidateResource,
+  useResourceList,
+  type ResourceRow as Row,
+  type ResourceValues as Values,
+} from './queries';
 import { ResourceForm } from './ResourceForm';
 import { readPath, type ResourceDef } from './resource-types';
-
-type Row = Record<string, unknown>;
-type Values = Record<string, unknown>;
-
-interface Page<T> {
-  items: T[];
-  total: number;
-  limit: number;
-  offset: number;
-}
-
-const PAGE_SIZE = 25;
 
 /** Strips fields the API refuses on edit, plus anything left blank. */
 function payloadFor(
@@ -36,7 +32,6 @@ function payloadFor(
 }
 
 export function ResourceManager({ resource }: { resource: ResourceDef }) {
-  const queryClient = useQueryClient();
   const [offset, setOffset] = useState(0);
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Row | null>(null);
@@ -45,24 +40,8 @@ export function ResourceManager({ resource }: { resource: ResourceDef }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
 
-  const listKey = [resource.key, 'list', offset, search] as const;
-
-  const list = useQuery({
-    queryKey: listKey,
-    queryFn: () =>
-      fetchData<Page<Row>>(resource.endpoint, {
-        limit: PAGE_SIZE,
-        offset,
-        search: search || undefined,
-      }),
-  });
-
-  function invalidate() {
-    // The reference dropdowns in other forms read the same endpoints, so the
-    // whole resource's cache goes, not just this page of it.
-    void queryClient.invalidateQueries({ queryKey: [resource.key] });
-    void queryClient.invalidateQueries({ queryKey: ['ref', resource.endpoint] });
-  }
+  const list = useResourceList(resource, offset, search);
+  const invalidate = useInvalidateResource(resource);
 
   function closeForm() {
     setEditing(null);
@@ -74,16 +53,13 @@ export function ResourceManager({ resource }: { resource: ResourceDef }) {
   const save = useMutation({
     mutationFn: async () => {
       if (editing) {
-        const id = editing[resource.idField];
-        await apiClient.patch(
-          `${resource.endpoint}/${String(id)}`,
+        await updateResource(
+          resource,
+          editing[resource.idField],
           payloadFor(resource, values, 'edit'),
         );
       } else {
-        await apiClient.post(
-          resource.endpoint,
-          payloadFor(resource, values, 'create'),
-        );
+        await createResource(resource, payloadFor(resource, values, 'create'));
       }
     },
     onSuccess: () => {
@@ -94,10 +70,7 @@ export function ResourceManager({ resource }: { resource: ResourceDef }) {
   });
 
   const remove = useMutation({
-    mutationFn: (row: Row) =>
-      apiClient.delete(
-        `${resource.endpoint}/${String(row[resource.idField])}`,
-      ),
+    mutationFn: (row: Row) => deleteResource(resource, row[resource.idField]),
     onSuccess: () => {
       setListError(null);
       invalidate();

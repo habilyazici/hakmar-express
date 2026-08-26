@@ -1,3 +1,4 @@
+import type { UseQueryResult } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
   Bar,
@@ -14,32 +15,38 @@ import {
 } from 'recharts';
 import { QueryState } from '../../components/QueryState';
 import { compactCurrency, formatPeriod, integer, num } from '../../lib/format';
-import { useApiQuery } from '../../lib/query';
 import { useIsDark, useSeriesColors } from '../../lib/use-color-scheme';
+import {
+  HEATMAP_TYPES,
+  RANKING_METRICS,
+  SALES_DIMENSIONS,
+  SALES_GRANULARITIES,
+  SALES_METRICS,
+  type BucketRow,
+  type HeatmapType,
+  type RankingMetric,
+  type SalesDimension,
+  type SalesGranularity,
+  type SalesMetric,
+  type WaterfallStep,
+} from '@hakmar/contracts';
 import { Heatmap } from './Heatmap';
 import {
   BUCKET_LABELS,
   DIMENSION_LABELS,
-  GRANULARITIES,
   GRANULARITY_LABELS,
   HEATMAP_LABELS,
-  HEATMAP_TYPES,
   METRIC_LABELS,
   isMoneyMetric,
-  RANKING_DIMENSIONS,
-  RANKING_METRICS,
-  TREND_METRICS,
-  type BucketRow,
-  type Granularity,
-  type HeatmapRow,
-  type HeatmapType,
-  type RankingDimension,
-  type RankingMetric,
-  type RankingRow,
-  type TrendMetric,
-  type TrendRow,
-  type WaterfallStep,
-} from './types';
+} from './labels';
+import {
+  useBasketSize,
+  useCustomerLoyalty,
+  useHeatmap,
+  useProfitWaterfall,
+  useRanking,
+  useTrend,
+} from './queries';
 
 /**
  * Recharts types a tooltip value as `ValueType | undefined`, i.e. it may be a
@@ -100,13 +107,13 @@ function Select<T extends string>({
 
 function TrendPanel() {
   const SERIES_COLORS = useSeriesColors();
-  const [granularity, setGranularity] = useState<Granularity>('month');
-  const [metrics, setMetrics] = useState<TrendMetric[]>(['sales', 'profit']);
+  const [granularity, setGranularity] = useState<SalesGranularity>('month');
+  const [metrics, setMetrics] = useState<SalesMetric[]>(['sales', 'profit']);
   const [cumulative, setCumulative] = useState(false);
 
   // At least one metric must stay selected: the API rejects an empty list
   // with a 400, so the UI should not be able to ask for one.
-  function toggleMetric(metric: TrendMetric) {
+  function toggleMetric(metric: SalesMetric) {
     setMetrics((current) =>
       current.includes(metric)
         ? current.length > 1
@@ -116,11 +123,7 @@ function TrendPanel() {
     );
   }
 
-  const query = useApiQuery<TrendRow[]>(
-    ['charts', 'trend', granularity, metrics, cumulative],
-    '/charts/trend',
-    { granularity, metrics: metrics.join(','), cumulative },
-  );
+  const query = useTrend(granularity, metrics, cumulative);
 
   const hasMoney = metrics.some(isMoneyMetric);
   const hasCount = metrics.some((m) => !isMoneyMetric(m));
@@ -133,12 +136,12 @@ function TrendPanel() {
           <Select
             label="Kırılım"
             value={granularity}
-            options={GRANULARITIES}
+            options={SALES_GRANULARITIES}
             labels={GRANULARITY_LABELS}
             onChange={setGranularity}
           />
           <div className="btn-group" role="group" aria-label="Metrikler">
-            {TREND_METRICS.map((metric) => (
+            {SALES_METRICS.map((metric) => (
               <button
                 key={metric}
                 type="button"
@@ -239,15 +242,11 @@ function TrendPanel() {
 
 function RankingPanel() {
   const SERIES_COLORS = useSeriesColors();
-  const [dimension, setDimension] = useState<RankingDimension>('branch');
+  const [dimension, setDimension] = useState<SalesDimension>('branch');
   const [metric, setMetric] = useState<RankingMetric>('sales');
   const [order, setOrder] = useState<'desc' | 'asc'>('desc');
 
-  const query = useApiQuery<RankingRow[]>(
-    ['charts', 'ranking', dimension, metric, order],
-    '/charts/ranking',
-    { dimension, metric, limit: 15, order },
-  );
+  const query = useRanking(dimension, metric, order);
 
   return (
     <section className="section">
@@ -257,7 +256,7 @@ function RankingPanel() {
           <Select
             label="Boyut"
             value={dimension}
-            options={RANKING_DIMENSIONS}
+            options={SALES_DIMENSIONS}
             labels={DIMENSION_LABELS}
             onChange={setDimension}
           />
@@ -331,14 +330,10 @@ function RankingPanel() {
 
 function HeatmapPanel() {
   const [type, setType] = useState<HeatmapType>('weekday-hour');
-  const [metric, setMetric] = useState<TrendMetric>('sales');
+  const [metric, setMetric] = useState<SalesMetric>('sales');
   const isCostMap = type === 'region-category';
 
-  const query = useApiQuery<HeatmapRow[]>(
-    ['charts', 'heatmap', type, metric],
-    '/charts/heatmap',
-    isCostMap ? { type } : { type, metric },
-  );
+  const query = useHeatmap(type, metric);
 
   return (
     <section className="section">
@@ -358,7 +353,7 @@ function HeatmapPanel() {
             <Select
               label="Metrik"
               value={metric}
-              options={TREND_METRICS}
+              options={SALES_METRICS}
               labels={METRIC_LABELS}
               onChange={setMetric}
             />
@@ -373,17 +368,24 @@ function HeatmapPanel() {
   );
 }
 
+function BasketSizePanel() {
+  const query = useBasketSize();
+  return <BucketPanel title="Sepet Büyüklüğü" query={query} />;
+}
+
+function CustomerLoyaltyPanel() {
+  const query = useCustomerLoyalty();
+  return <BucketPanel title="Müşteri Sadakati" query={query} />;
+}
+
 function BucketPanel({
   title,
-  url,
-  queryKey,
+  query,
 }: {
   title: string;
-  url: string;
-  queryKey: string;
+  query: UseQueryResult<BucketRow[]>;
 }) {
   const SERIES_COLORS = useSeriesColors();
-  const query = useApiQuery<BucketRow[]>(['charts', queryKey], url);
 
   return (
     <div className="panel">
@@ -421,10 +423,7 @@ function BucketPanel({
 function WaterfallPanel() {
   const SERIES_COLORS = useSeriesColors();
   const NEGATIVE_FILL = useIsDark() ? '#f87171' : '#b91c1c';
-  const query = useApiQuery<WaterfallStep[]>(
-    ['charts', 'profit-waterfall'],
-    '/charts/profit-waterfall',
-  );
+  const query = useProfitWaterfall();
   const labels: Record<WaterfallStep['step'], string> = {
     sales: 'Satış',
     cost: 'Maliyet',
@@ -487,16 +486,8 @@ export function ChartsPage() {
       <section className="section">
         <h2 className="section-title">Dağılımlar</h2>
         <div className="panel-grid">
-          <BucketPanel
-            title="Sepet Büyüklüğü"
-            url="/charts/basket-size"
-            queryKey="basket-size"
-          />
-          <BucketPanel
-            title="Müşteri Sadakati"
-            url="/charts/customer-loyalty"
-            queryKey="customer-loyalty"
-          />
+          <BasketSizePanel />
+          <CustomerLoyaltyPanel />
           <WaterfallPanel />
         </div>
       </section>

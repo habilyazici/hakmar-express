@@ -1,3 +1,5 @@
+export type { ApiEnvelope } from '@hakmar/contracts';
+
 import axios, {
   AxiosError,
   type InternalAxiosRequestConfig,
@@ -83,8 +85,3 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   },
 );
-
-export interface ApiEnvelope<T> {
-  success: true;
-  data: T;
-}

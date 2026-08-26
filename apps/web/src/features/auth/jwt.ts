@@ -1,4 +1,4 @@
-import type { AuthUser } from './types';
+import type { AuthUser } from '@hakmar/contracts';
 
 /**
  * atob() yields a binary string, one char per byte. JWT payloads are UTF-8,

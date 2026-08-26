@@ -9,7 +9,7 @@ import {
   integer,
   signedPercent,
 } from '../../lib/format';
-import { postData, useApiQuery } from '../../lib/query';
+import { runForecast, useCityGeoJson } from './queries';
 import { TurkeyMap, type FeatureCollection, type MapValue } from './TurkeyMap';
 
 type Metric = 'quantity' | 'sales' | 'cost' | 'profit';
@@ -157,14 +157,11 @@ export function ForecastPage() {
   const [costChangePct, setCostChangePct] = useState(0);
   const [purchasingPowerPct, setPurchasingPowerPct] = useState(0);
 
-  const geojson = useApiQuery<GeoJsonPayload>(
-    ['geo', 'geojson', 'city'],
-    '/geo/geojson/city',
-  );
+  const geojson = useCityGeoJson<GeoJsonPayload>();
 
   const mutation = useMutation({
     mutationFn: () =>
-      postData<ForecastResult>('/spatial-forecast/run', {
+      runForecast<ForecastResult>({
         mapType,
         metric,
         periodMonths,

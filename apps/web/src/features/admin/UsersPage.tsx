@@ -1,27 +1,19 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import type { Role } from '@hakmar/contracts';
 import { useId, useState } from 'react';
 import { QueryState } from '../../components/QueryState';
-import { apiClient } from '../../lib/api-client';
 import { apiErrorMessage } from '../../lib/api-error';
-import { fetchData } from '../../lib/query';
 import { useAuth } from '../auth/use-auth';
-import type { Role } from '../auth/types';
-
-interface User {
-  id: number;
-  username: string;
-  fullName: string;
-  email: string | null;
-  jobTitle: string | null;
-  role: Role;
-  isActive: boolean;
-  lastLogin: string | null;
-}
-
-interface Page<T> {
-  items: T[];
-  total: number;
-}
+import {
+  changeOwnPassword,
+  createUser,
+  deleteUser,
+  setUserPassword,
+  updateUser,
+  useInvalidateUsers,
+  useUsers,
+  type User,
+} from './queries';
 
 const ROLE_LABELS: Record<Role, string> = {
   SUPERADMIN: 'Süper Yönetici',
@@ -82,11 +74,7 @@ function OwnPasswordPanel() {
   const [error, setError] = useState<string | null>(null);
 
   const change = useMutation({
-    mutationFn: () =>
-      apiClient.patch('/users/me/password', {
-        currentPassword: current,
-        newPassword: next,
-      }),
+    mutationFn: () => changeOwnPassword(current, next),
     onSuccess: () => {
       setCurrent('');
       setNext('');
@@ -155,7 +143,6 @@ function OwnPasswordPanel() {
 
 export function UsersPage() {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
   const isSuperadmin = user?.role === 'SUPERADMIN';
 
   const [creating, setCreating] = useState(false);
@@ -172,18 +159,12 @@ export function UsersPage() {
   const [resetFor, setResetFor] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState('');
 
-  const list = useQuery({
-    queryKey: ['users', 'list'],
-    queryFn: () => fetchData<Page<User>>('/users', { limit: 200 }),
-    enabled: isSuperadmin,
-  });
-
-  const invalidate = () =>
-    void queryClient.invalidateQueries({ queryKey: ['users'] });
+  const list = useUsers(isSuperadmin);
+  const invalidate = useInvalidateUsers();
 
   const create = useMutation({
     mutationFn: () =>
-      apiClient.post('/users', {
+      createUser({
         username: form.username,
         password: form.password,
         fullName: form.fullName,
@@ -209,7 +190,7 @@ export function UsersPage() {
 
   const patch = useMutation({
     mutationFn: ({ id, body }: { id: number; body: Record<string, unknown> }) =>
-      apiClient.patch(`/users/${id}`, body),
+      updateUser(id, body),
     onSuccess: () => {
       setListError(null);
       invalidate();
@@ -218,7 +199,7 @@ export function UsersPage() {
   });
 
   const remove = useMutation({
-    mutationFn: (id: number) => apiClient.delete(`/users/${id}`),
+    mutationFn: (id: number) => deleteUser(id),
     onSuccess: () => {
       setListError(null);
       invalidate();
@@ -228,7 +209,7 @@ export function UsersPage() {
 
   const resetPassword = useMutation({
     mutationFn: ({ id, password }: { id: number; password: string }) =>
-      apiClient.patch(`/users/${id}/password`, { password }),
+      setUserPassword(id, password),
     onSuccess: () => {
       setResetFor(null);
       setNewPassword('');

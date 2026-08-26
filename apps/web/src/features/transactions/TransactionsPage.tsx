@@ -1,49 +1,13 @@
 import { useState } from 'react';
 import { QueryState } from '../../components/QueryState';
 import { currency, decimal, integer, num } from '../../lib/format';
-import { useApiQuery } from '../../lib/query';
-
-interface ReceiptRow {
-  id: number;
-  receiptDate: string;
-  receiptTime: string;
-  branchId: number;
-  branchName: string;
-  cashierName: string;
-  customerName: string;
-  itemCount: number;
-  total: string;
-  margin: string;
-}
-
-interface ReceiptItem {
-  id: number;
-  productId: number;
-  productName: string;
-  brandName: string;
-  quantity: string;
-  totalPrice: string;
-  totalCost: string;
-  totalMargin: string;
-}
-
-interface ReceiptDetail extends ReceiptRow {
-  items: ReceiptItem[];
-}
-
-interface Page<T> {
-  items: T[];
-  total: number;
-  limit: number;
-  offset: number;
-}
-
-interface Named {
-  id: number;
-  name?: string;
-  firstName?: string;
-  lastName?: string;
-}
+import {
+  useReceipt,
+  useReceipts,
+  useNamedReferenceList,
+  type Named,
+  type ReceiptFilters,
+} from './queries';
 
 const PAGE_SIZE = 25;
 
@@ -70,18 +34,14 @@ function FilterSelect({
   label,
   value,
   endpoint,
-  queryKey,
   onChange,
 }: {
   label: string;
   value: string;
   endpoint: string;
-  queryKey: string;
   onChange: (value: string) => void;
 }) {
-  const query = useApiQuery<Page<Named>>(['ref', queryKey], endpoint, {
-    limit: 200,
-  });
+  const query = useNamedReferenceList(endpoint);
   return (
     <label className="field field--inline">
       <span>{label}</span>
@@ -102,10 +62,7 @@ function FilterSelect({
 }
 
 function ReceiptDetailPanel({ id, onClose }: { id: number; onClose: () => void }) {
-  const query = useApiQuery<ReceiptDetail>(
-    ['transactions', 'receipt', id],
-    `/transactions/receipts/${id}`,
-  );
+  const query = useReceipt(id);
 
   return (
     <div className="panel" style={{ marginBottom: 16 }}>
@@ -204,7 +161,7 @@ export function TransactionsPage() {
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
 
-  const params = {
+  const params: ReceiptFilters = {
     limit: PAGE_SIZE,
     offset,
     dateFrom: dateFrom || undefined,
@@ -214,11 +171,7 @@ export function TransactionsPage() {
     customerId: customerId || undefined,
   };
 
-  const list = useApiQuery<Page<ReceiptRow>>(
-    ['transactions', 'receipts', params],
-    '/transactions/receipts',
-    params,
-  );
+  const list = useReceipts(params);
 
   /** Any filter change invalidates the current page number. */
   function withReset<T>(setter: (value: T) => void) {
@@ -259,21 +212,18 @@ export function TransactionsPage() {
               label="Şube"
               value={branchId}
               endpoint="/geo/branches"
-              queryKey="/geo/branches"
               onChange={withReset(setBranchId)}
             />
             <FilterSelect
               label="Kasiyer"
               value={cashierId}
               endpoint="/people/cashiers"
-              queryKey="/people/cashiers"
               onChange={withReset(setCashierId)}
             />
             <FilterSelect
               label="Müşteri"
               value={customerId}
               endpoint="/people/customers"
-              queryKey="/people/customers"
               onChange={withReset(setCustomerId)}
             />
             <button

@@ -1,12 +1,8 @@
 import { useId } from 'react';
-import { useApiQuery } from '../../lib/query';
+import { useReferenceList } from '../../lib/reference-query';
 import type { FieldDef } from './resource-types';
 
 type Values = Record<string, unknown>;
-
-interface Page<T> {
-  items: T[];
-}
 
 /** A dropdown whose options come from another resource's list endpoint. */
 function ReferenceField({
@@ -21,11 +17,7 @@ function ReferenceField({
   id: string;
 }) {
   const ref = field.reference!;
-  const query = useApiQuery<Page<Record<string, unknown>>>(
-    ['ref', ref.endpoint],
-    ref.endpoint,
-    { limit: 200 },
-  );
+  const query = useReferenceList(ref.endpoint);
 
   const items = query.data?.items ?? [];
 
