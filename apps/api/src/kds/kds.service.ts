@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma';
+// Response shapes come from @hakmar/contracts; the web compiles against the
+// same definitions.
 import type {
   AbcRow,
   DemandForecastRow,
@@ -8,18 +10,6 @@ import type {
   RfmRow,
 } from '@hakmar/contracts';
 import { SALES_METRIC_EXPR, SalesMetric } from '../sales';
-
-/**
- * Response shapes come from @hakmar/contracts and are re-exported here, so
- * this module still reads as the owner of its own API while the web
- * compiles against the same definitions.
- */
-export type {
-  AbcRow,
-  DemandForecastRow,
-  MarketBasketRow,
-  RfmRow,
-} from '@hakmar/contracts';
 
 @Injectable()
 export class KdsService {

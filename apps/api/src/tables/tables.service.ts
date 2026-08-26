@@ -20,15 +20,8 @@ import { TableEntity } from './dto/table-ranking-query.dto';
  * @hakmar/contracts, parameterised over `Date` where the driver hands back
  * one for a DATE column.
  */
-export type CustomerRanking = CustomerRankingRow<Date>;
+type CustomerRanking = CustomerRankingRow<Date>;
 export type RankingRow = TableRankingRow<Date>;
-export type {
-  BranchRankingRow,
-  CashierRankingRow,
-  PriceHistoryRow,
-  ProductRankingRow,
-  RegionCostRow,
-};
 
 @Injectable()
 export class TablesService {

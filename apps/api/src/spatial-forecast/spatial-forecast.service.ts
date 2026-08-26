@@ -40,16 +40,8 @@ type BaseMetric = (typeof BASE_METRICS)[number];
 /** Trend + two seasonal harmonics, so 5 features; fitOls needs featureCount+2 rows. */
 const MIN_OBSERVATIONS = 7;
 
-/**
- * Result shapes come from @hakmar/contracts, so the map the web draws and
- * the model that fills it are checked against one definition.
- */
-export type {
-  AreaForecast,
-  ForecastMethod,
-  ForecastResult,
-  MetricValues,
-} from '@hakmar/contracts';
+/** The spec builds MetricValues fixtures; the rest are used in signatures. */
+export type { MetricValues } from '@hakmar/contracts';
 
 interface MonthlyRow {
   cityId: number;

@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import type { Role } from '@hakmar/contracts';
+import type { AdminUserDto, Role } from '@hakmar/contracts';
 import { useId, useState } from 'react';
 import { QueryState } from '../../components/QueryState';
 import { apiErrorMessage } from '../../lib/api-error';
@@ -12,7 +12,6 @@ import {
   updateUser,
   useInvalidateUsers,
   useUsers,
-  type User,
 } from './queries';
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -156,7 +155,7 @@ export function UsersPage() {
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
-  const [resetFor, setResetFor] = useState<User | null>(null);
+  const [resetFor, setResetFor] = useState<AdminUserDto | null>(null);
   const [newPassword, setNewPassword] = useState('');
 
   const list = useUsers(isSuperadmin);

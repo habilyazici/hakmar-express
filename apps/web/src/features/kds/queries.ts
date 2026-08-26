@@ -7,13 +7,6 @@ import type {
 import { useApiQuery } from '../../lib/query';
 
 /** The /kds analytics endpoints. Row shapes come from @hakmar/contracts. */
-export type {
-  AbcRow,
-  DemandForecastRow,
-  MarketBasketRow,
-  RfmRow,
-} from '@hakmar/contracts';
-
 export function useAbcAnalysis(days: number) {
   return useApiQuery<AbcRow[]>(['kds', 'abc', days], '/kds/abc-analysis', {
     days,

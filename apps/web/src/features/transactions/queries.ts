@@ -7,12 +7,6 @@ import { useApiQuery } from '../../lib/query';
 import { useReferenceList } from '../../lib/reference-query';
 
 /** Row shapes come from @hakmar/contracts. */
-export type {
-  ReceiptDetail,
-  ReceiptItemRow,
-  ReceiptListRow,
-} from '@hakmar/contracts';
-
 /** Something with a display name, as the filter dropdowns need it. */
 export interface Named {
   id: number;

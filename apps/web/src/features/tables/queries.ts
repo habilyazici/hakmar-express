@@ -7,12 +7,6 @@ import { useApiQuery } from '../../lib/query';
 
 /** The /tables endpoints. Row shapes come from @hakmar/contracts, which the
  *  services behind them are typed from as well. */
-export type {
-  PriceHistoryRow,
-  RegionCostRow,
-  TableRankingRow,
-} from '@hakmar/contracts';
-
 export function useTableRanking(entity: string, limit = 100) {
   // The renderer is one generic column map over four row shapes, so it
   // indexes by key; TableRankingRow is what the API guarantees is behind it.

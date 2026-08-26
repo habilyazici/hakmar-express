@@ -2,8 +2,6 @@ import { Injectable } from '@nestjs/common';
 import type { GeoJsonPayload } from '@hakmar/contracts';
 import { PrismaService } from '../prisma';
 
-export type { GeoJsonPayload } from '@hakmar/contracts';
-
 @Injectable()
 export class GeoJsonService {
   constructor(private readonly prisma: PrismaService) {}

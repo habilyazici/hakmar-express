@@ -12,8 +12,7 @@ import type { ReceiptQueryDto } from './dto/receipt-query.dto';
  */
 import type { ReceiptListRow, ReceiptItemRow } from '@hakmar/contracts';
 
-export type ReceiptRow = ReceiptListRow<Date>;
-export type { ReceiptItemRow };
+type ReceiptRow = ReceiptListRow<Date>;
 
 @Injectable()
 export class TransactionsService {

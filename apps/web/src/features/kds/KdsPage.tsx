@@ -1,3 +1,4 @@
+import type { AbcRow, RfmRow } from '@hakmar/contracts';
 import { useState } from 'react';
 import { QueryState } from '../../components/QueryState';
 import { currency, decimal, integer, num, percent } from '../../lib/format';
@@ -6,8 +7,6 @@ import {
   useCustomerSegmentation,
   useDemandForecast,
   useMarketBasket,
-  type AbcRow,
-  type RfmRow,
 } from './queries';
 
 const SEGMENT_LABELS: Record<RfmRow['segment'], string> = {

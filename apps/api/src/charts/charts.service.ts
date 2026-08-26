@@ -11,6 +11,9 @@ import {
   SalesMetric,
   SalesTotalsService,
 } from '../sales';
+// Response shapes are defined once, in @hakmar/contracts. If a query's
+// SELECT list stops matching the shape the web renders, that is a compile
+// error on this side rather than an empty column on the other.
 import type {
   BucketRow,
   GeographicSalesRow,
@@ -21,21 +24,6 @@ import type {
 } from '@hakmar/contracts';
 import { HeatmapType } from './dto/heatmap-query.dto';
 import { RankingMetric } from './dto/ranking-query.dto';
-
-/**
- * Response shapes are defined once, in @hakmar/contracts, and re-exported
- * here so this module still reads as the owner of its own API. If a query's
- * SELECT list stops matching the shape the web renders, that is now a
- * compile error on this side rather than an empty column on the other.
- */
-export type {
-  BucketRow,
-  GeographicSalesRow,
-  HeatmapRow,
-  RankingRow,
-  TrendRow,
-  WaterfallStep,
-} from '@hakmar/contracts';
 
 const BASKET_SIZE_ORDER = ['small', 'medium', 'large', 'xlarge'];
 const LOYALTY_TIER_ORDER = ['new', 'occasional', 'regular', 'loyal'];

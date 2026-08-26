@@ -62,9 +62,6 @@ export { PAGE_SIZE };
 
 // -------------------------------------------------------------------- users
 
-/** The account shape and the create body, as the API defines them. */
-export type { AdminUserDto as User, CreateUserBody as NewUser };
-
 export function useUsers(enabled: boolean) {
   return useApiQuery<Page<AdminUserDto>>(
     ['users', 'list'],

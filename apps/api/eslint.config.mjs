@@ -122,6 +122,29 @@ export default tseslint.config(
       ],
     },
   },
+  // The composition root (main.ts, app.module.ts and friends) sits directly
+  // under src/, and boundaries' elements match folders, so those four files
+  // are not part of any element and the barrel rule above cannot see them.
+  // They are allowed to import every module — composing them is the job they
+  // exist to do — but not to reach past a module's index.ts, so that half is
+  // enforced here instead.
+  {
+    files: ['src/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['./*/*'],
+              message:
+                "Import the module through its index.ts (`./auth`), not its internals.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   {
     // e2e tests assert on raw HTTP response bodies (supertest types them as
     // `any`); casting every access would add noise without catching real bugs.
