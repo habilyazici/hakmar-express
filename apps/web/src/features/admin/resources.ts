@@ -1,16 +1,32 @@
-import type { ResourceDef } from './resource-types';
+import type {
+  BranchDto,
+  BrandDto,
+  CashierDto,
+  CategoryDto,
+  CityDto,
+  CustomerDto,
+  ProductDto,
+  RegionDto,
+  SubcategoryDto,
+} from '@hakmar/contracts';
+import { defineResource, type ResourceDef } from './resource-types';
 
 /**
- * One declaration per entity, mirroring the API's DTOs.
+ * One declaration per entity, checked against the API's DTOs.
  *
- * Unlike the backend — where a generated CRUD layer would have risked the
- * ValidationPipe losing sight of the DTO and silently accepting anything —
- * driving the UI from a table is safe: the server validates every write
- * regardless of what this file says, so the worst a mistake here can cause
- * is a 400 the form then displays.
+ * It used to say it mirrored them, by hand, with nothing comparing the two:
+ * a mistyped field name reached the user as a 400 from a form that looked
+ * fine, and a renamed column showed an empty cell. `defineResource<T>` makes
+ * every field name one of that entity's scalars and every column a path that
+ * exists on it.
+ *
+ * Driving the UI from a table is safe in a way generating the backend from
+ * one would not have been — a generated CRUD layer risks the ValidationPipe
+ * losing sight of the DTO and silently accepting anything. Here the server
+ * validates every write regardless of what this file says.
  */
 export const RESOURCES: ResourceDef[] = [
-  {
+  defineResource<CategoryDto>({
     key: 'categories',
     title: 'Kategoriler',
     noun: 'kategori',
@@ -21,8 +37,8 @@ export const RESOURCES: ResourceDef[] = [
       { key: 'name', label: 'Ad' },
     ],
     fields: [{ name: 'name', label: 'Ad', type: 'text', required: true }],
-  },
-  {
+  }),
+  defineResource<SubcategoryDto>({
     key: 'subcategories',
     title: 'Alt Kategoriler',
     noun: 'alt kategori',
@@ -48,8 +64,8 @@ export const RESOURCES: ResourceDef[] = [
       },
     ],
     emptyHint: 'Önce bir kategori oluşturun.',
-  },
-  {
+  }),
+  defineResource<BrandDto>({
     key: 'brands',
     title: 'Markalar',
     noun: 'marka',
@@ -83,8 +99,8 @@ export const RESOURCES: ResourceDef[] = [
       },
     ],
     emptyHint: 'Önce bir kategori oluşturun.',
-  },
-  {
+  }),
+  defineResource<ProductDto>({
     key: 'products',
     title: 'Ürünler',
     noun: 'ürün',
@@ -122,8 +138,8 @@ export const RESOURCES: ResourceDef[] = [
       },
     ],
     emptyHint: 'Önce marka ve alt kategori oluşturun.',
-  },
-  {
+  }),
+  defineResource<RegionDto>({
     key: 'regions',
     title: 'Bölgeler',
     noun: 'bölge',
@@ -134,8 +150,8 @@ export const RESOURCES: ResourceDef[] = [
       { key: 'name', label: 'Ad' },
     ],
     fields: [{ name: 'name', label: 'Ad', type: 'text', required: true }],
-  },
-  {
+  }),
+  defineResource<CityDto>({
     key: 'cities',
     title: 'Şehirler',
     noun: 'şehir',
@@ -161,12 +177,16 @@ export const RESOURCES: ResourceDef[] = [
         label: 'Bölge',
         type: 'reference',
         required: true,
-        reference: { endpoint: '/geo/regions', valueKey: 'id', labelKey: 'name' },
+        reference: {
+          endpoint: '/geo/regions',
+          valueKey: 'id',
+          labelKey: 'name',
+        },
       },
     ],
     emptyHint: 'Önce bir bölge oluşturun.',
-  },
-  {
+  }),
+  defineResource<BranchDto>({
     key: 'branches',
     title: 'Şubeler',
     noun: 'şube',
@@ -186,7 +206,11 @@ export const RESOURCES: ResourceDef[] = [
         label: 'Şehir',
         type: 'reference',
         required: true,
-        reference: { endpoint: '/geo/cities', valueKey: 'id', labelKey: 'name' },
+        reference: {
+          endpoint: '/geo/cities',
+          valueKey: 'id',
+          labelKey: 'name',
+        },
       },
       {
         name: 'latitude',
@@ -197,8 +221,8 @@ export const RESOURCES: ResourceDef[] = [
       { name: 'longitude', label: 'Boylam', type: 'number' },
     ],
     emptyHint: 'Önce bir şehir oluşturun.',
-  },
-  {
+  }),
+  defineResource<CustomerDto>({
     key: 'customers',
     title: 'Müşteriler',
     noun: 'müşteri',
@@ -225,8 +249,8 @@ export const RESOURCES: ResourceDef[] = [
         ],
       },
     ],
-  },
-  {
+  }),
+  defineResource<CashierDto>({
     key: 'cashiers',
     title: 'Kasiyerler',
     noun: 'kasiyer',
@@ -254,5 +278,5 @@ export const RESOURCES: ResourceDef[] = [
       },
     ],
     emptyHint: 'Önce bir şube oluşturun.',
-  },
+  }),
 ];
