@@ -8,10 +8,11 @@ import { SalesDimension, SalesGranularity, SalesMetric } from './sales.model';
  *
  * Why this exists: six modules (Charts, Dashboard, Tables, KDS, Spatial
  * Forecast, Transactions) read `receipts` and `receipt_items` directly, and
- * before this file `COALESCE(SUM(ri.total_price), 0)` was written out by
- * hand in sixteen places across four files. Renaming a column meant finding
- * all sixteen, with nothing but grep to tell you when you had missed one —
- * the type system cannot see inside a template literal.
+ * between them they name a metric in thirty places — twenty-six of them
+ * spelled out by hand in five services, plus the four in the two lookup
+ * tables Charts kept for itself. Renaming a column meant finding all thirty
+ * with grep, and grep is the only thing that could have found them: the type
+ * system cannot see inside a template literal.
  *
  * What this is NOT: an attempt to funnel every sales query through one
  * generic builder. The modules keep writing their own queries, because

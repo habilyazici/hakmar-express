@@ -130,16 +130,23 @@ apps/api/src/
 packages/contracts/  the HTTP contract both sides compile against
 ```
 
-Three rules, enforced by `eslint-plugin-boundaries` rather than by memory
-(`apps/api/eslint.config.mjs`):
+Two rules, enforced rather than remembered (`apps/api/eslint.config.mjs`):
 
 1. The shared kernel and the infrastructure modules may not import a feature
    module. The dependency arrow only points inwards.
 2. A module reaches a neighbour through its `index.ts` and nothing else.
    Everything a neighbour is meant to use is exported there; the rest is
    private and can be changed without a search across the repo.
-3. `test/` is exempt — e2e suites build testing modules out of controllers,
-   which are an HTTP entry point rather than a module's public API.
+
+`eslint-plugin-boundaries` enforces both. Its elements match folders, so the
+four composition-root files directly under `src/` belong to no element and
+it cannot see them; they are allowed to import every module — composing them
+is the job they exist to do — but a `no-restricted-imports` rule scoped to
+`src/*.ts` still holds them to rule 2.
+
+`test/` is deliberately outside all of it: the e2e suites build testing
+modules out of controllers, and a controller is an HTTP entry point rather
+than something a module should export to its neighbours.
 
 Try it: import `../sales/sales.sql` instead of `../sales`, or make `common/`
 import a module, and `pnpm lint` fails naming the boundary.
@@ -151,11 +158,11 @@ aggregate through one generic builder — their query shapes genuinely differ,
 and the indirection would buy nothing — `sales/sales.sql.ts` owns the
 *vocabulary*: the fact join, the five metric expressions, the seven period
 expressions and the seven dimension joins. Modules compose their own queries
-from those fragments. These expressions were written out by hand in
-twenty-two places across four services, on top of the two private lookup
-tables Charts kept for itself — so renaming a column meant finding all of
-them with grep, because the type system cannot see inside a template
-literal.
+from those fragments. A metric is named in thirty places across the six
+modules — twenty-six spelled out by hand, four in the lookup tables Charts
+kept privately — so renaming a column meant finding all thirty with grep,
+and grep was the only thing that could: the type system cannot see inside a
+template literal.
 
 Every fragment assumes the query aliases `receipts` as `r` and
 `receipt_items` as `ri`. That is the price of sharing them.
