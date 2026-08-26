@@ -6,6 +6,7 @@ export * from './forecast';
 export * from './geo';
 export * from './kds';
 export * from './master-data';
+export * from './requests';
 export * from './sales';
 export * from './tables';
 export * from './transactions';

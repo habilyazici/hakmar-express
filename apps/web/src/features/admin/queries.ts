@@ -1,5 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query';
-import type { AdminUserDto, CreateUserBody, Page } from '@hakmar/contracts';
+import type {
+  AdminUserDto,
+  ChangeOwnPasswordBody,
+  CreateUserBody,
+  Page,
+  SetPasswordBody,
+  UpdateUserBody,
+} from '@hakmar/contracts';
 import { apiClient } from '../../lib/api-client';
 import { useApiQuery } from '../../lib/query';
 import type { ResourceDef } from './resource-types';
@@ -80,7 +87,7 @@ export function createUser(body: CreateUserBody) {
   return apiClient.post('/users', body);
 }
 
-export function updateUser(id: number, body: Record<string, unknown>) {
+export function updateUser(id: number, body: UpdateUserBody) {
   return apiClient.patch(`/users/${id}`, body);
 }
 
@@ -89,15 +96,14 @@ export function deleteUser(id: number) {
 }
 
 export function setUserPassword(id: number, password: string) {
-  return apiClient.patch(`/users/${id}/password`, { password });
+  const body: SetPasswordBody = { password };
+  return apiClient.patch(`/users/${id}/password`, body);
 }
 
 export function changeOwnPassword(
   currentPassword: string,
   newPassword: string,
 ) {
-  return apiClient.patch('/users/me/password', {
-    currentPassword,
-    newPassword,
-  });
+  const body: ChangeOwnPasswordBody = { currentPassword, newPassword };
+  return apiClient.patch('/users/me/password', body);
 }

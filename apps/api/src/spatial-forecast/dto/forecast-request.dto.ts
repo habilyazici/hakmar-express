@@ -2,6 +2,7 @@ import type {
   DiscountScope as DiscountScopeContract,
   ForecastMetric as ForecastMetricContract,
   MapType as MapTypeContract,
+  ForecastRunBody,
 } from '@hakmar/contracts';
 import type { Assert, SameMembers, ValuesOf } from '../../common';
 import { Type } from 'class-transformer';
@@ -94,3 +95,15 @@ export class ForecastRequestDto {
   @Max(200)
   purchasingPowerPct?: number = 0;
 }
+
+/**
+ * Keys only, not the whole structure. Three of these fields are typed with
+ * the enums above, and a TypeScript enum is nominal: `'city'` is not
+ * assignable to `MapType.CITY`, so a structural comparison against the
+ * contract's string unions can never hold. Those three are checked instead
+ * by the three assertions at the top of this file, which compare the enums
+ * to the unions member by member.
+ */
+export type _ForecastRunKeys = Assert<
+  SameMembers<keyof ForecastRequestDto, keyof ForecastRunBody>
+>;

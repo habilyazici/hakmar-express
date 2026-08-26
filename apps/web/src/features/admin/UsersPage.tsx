@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import type { AdminUserDto, Role } from '@hakmar/contracts';
+import type { AdminUserDto, Role, UpdateUserBody } from '@hakmar/contracts';
 import { useId, useState } from 'react';
 import { QueryState } from '../../components/QueryState';
 import { apiErrorMessage } from '../../lib/api-error';
@@ -188,7 +188,7 @@ export function UsersPage() {
   });
 
   const patch = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: Record<string, unknown> }) =>
+    mutationFn: ({ id, body }: { id: number; body: UpdateUserBody }) =>
       updateUser(id, body),
     onSuccess: () => {
       setListError(null);

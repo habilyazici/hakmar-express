@@ -1,5 +1,11 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { Role } from '../../common';
+import type {
+  ChangeOwnPasswordBody,
+  CreateUserBody,
+  SetPasswordBody,
+  UpdateUserBody,
+} from '@hakmar/contracts';
+import { Role, type Assert, type SameMembers } from '../../common';
 import {
   IsBoolean,
   IsEmail,
@@ -100,3 +106,34 @@ export class ChangeOwnPasswordDto {
   @Matches(PASSWORD_RULE, { message: PASSWORD_MESSAGE })
   newPassword!: string;
 }
+
+/**
+ * The validators above are this API's own; the shapes they validate are the
+ * contract's. Asserting both — the key set and the structure — catches a
+ * field added on one side alone, which `forbidNonWhitelisted` would
+ * otherwise turn into a 400 the form has to explain.
+ *
+ * `isActive` is the reason this exists: CreateUserDto has had it since it
+ * was written, and the first draft of the contract did not, with nothing to
+ * say so.
+ */
+export type _CreateUserKeys = Assert<
+  SameMembers<keyof CreateUserDto, keyof CreateUserBody>
+>;
+export type _CreateUserShape = Assert<
+  SameMembers<CreateUserDto, CreateUserBody>
+>;
+
+export type _UpdateUserKeys = Assert<
+  SameMembers<keyof UpdateUserDto, keyof UpdateUserBody>
+>;
+export type _UpdateUserShape = Assert<
+  SameMembers<UpdateUserDto, UpdateUserBody>
+>;
+
+export type _SetPasswordShape = Assert<
+  SameMembers<SetPasswordDto, SetPasswordBody>
+>;
+export type _ChangeOwnPasswordShape = Assert<
+  SameMembers<ChangeOwnPasswordDto, ChangeOwnPasswordBody>
+>;

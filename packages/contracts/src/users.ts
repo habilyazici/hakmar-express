@@ -20,12 +20,3 @@ export interface AdminUserDto<D = string> {
   createdAt: D;
   updatedAt: D;
 }
-
-export interface CreateUserBody {
-  username: string;
-  password: string;
-  fullName: string;
-  email?: string;
-  jobTitle?: string;
-  role: Role;
-}

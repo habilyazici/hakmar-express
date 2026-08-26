@@ -1,4 +1,8 @@
-import type { LoginResponse, RefreshResponse } from '@hakmar/contracts';
+import type {
+  LoginBody,
+  LoginResponse,
+  RefreshResponse,
+} from '@hakmar/contracts';
 import { apiClient, type ApiEnvelope } from '../../lib/api-client';
 
 /**
@@ -15,10 +19,11 @@ export async function postLogin(
   username: string,
   password: string,
 ): Promise<LoginResponse> {
-  const res = await apiClient.post<ApiEnvelope<LoginResponse>>('/auth/login', {
-    username,
-    password,
-  });
+  const body: LoginBody = { username, password };
+  const res = await apiClient.post<ApiEnvelope<LoginResponse>>(
+    '/auth/login',
+    body,
+  );
   return res.data.data;
 }
 
