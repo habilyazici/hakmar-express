@@ -11,11 +11,11 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { Role } from '../../generated/prisma/enums';
 import {
   type AuthenticatedUser,
-  PaginationQueryDto,
   CurrentUser,
+  PaginationQueryDto,
+  Role,
   Roles,
 } from '../common';
 import {

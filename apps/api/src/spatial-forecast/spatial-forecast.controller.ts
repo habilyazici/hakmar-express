@@ -8,12 +8,12 @@ import {
   Query,
 } from '@nestjs/common';
 import type { ForecastRunResult } from '@hakmar/contracts';
-import { Role } from '../../generated/prisma/enums';
 import {
-  CurrentUser,
-  Roles,
   type AuthenticatedUser,
+  CurrentUser,
   LimitQueryDto,
+  Role,
+  Roles,
 } from '../common';
 import { ForecastRequestDto } from './dto/forecast-request.dto';
 import { SpatialForecastService } from './spatial-forecast.service';

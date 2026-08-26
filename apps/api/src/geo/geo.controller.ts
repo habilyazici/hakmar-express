@@ -12,11 +12,11 @@ import {
   Query,
   UseInterceptors,
 } from '@nestjs/common';
-import { Role } from '../../generated/prisma/enums';
 import {
-  PaginationQueryDto,
-  Roles,
   CacheInvalidationInterceptor,
+  PaginationQueryDto,
+  Role,
+  Roles,
 } from '../common';
 import {
   CreateBranchDto,
@@ -26,7 +26,7 @@ import {
   UpdateCityDto,
   UpdateRegionDto,
 } from './dto/geo.dto';
-import { BranchesService, CitiesService, RegionsService } from './geo.services';
+import { BranchesService, CitiesService, RegionsService } from './geo.service';
 
 /**
  * Reads are open to every role including ANALYST; writes are ADMIN and above.

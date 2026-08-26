@@ -3,9 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
-import { Role } from '../../generated/prisma/enums';
 import { PrismaService } from '../prisma';
-import { AuthenticatedUser } from '../common';
+import { AuthenticatedUser, Role } from '../common';
 
 export interface TokenPair {
   accessToken: string;

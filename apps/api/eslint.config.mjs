@@ -26,11 +26,16 @@ export default tseslint.config(
     },
   },
   {
+    // These three arrived from the Nest scaffold as off/warn. The source has
+    // no `any`, no floating promise and no unsafe argument in it, so all
+    // three were guarding nothing while making the config look laxer than
+    // the code — the next `any` would have landed without a word. Errors
+    // now, which is what they were already true of.
     rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-floating-promises': 'warn',
-      '@typescript-eslint/no-unsafe-argument': 'warn',
-      "prettier/prettier": ["error", { endOfLine: "auto" }],
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-unsafe-argument': 'error',
+      'prettier/prettier': ['error', { endOfLine: 'auto' }],
     },
   },
   // ---------------------------------------------------------------------

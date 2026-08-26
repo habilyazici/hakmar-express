@@ -1,10 +1,16 @@
 import { Injectable } from '@nestjs/common';
+import type {
+  BrandDto,
+  CategoryDto,
+  ProductDto,
+  SubcategoryDto,
+} from '@hakmar/contracts';
 import { CrudService, type PrismaDelegate } from '../common';
 import { PrismaService } from '../prisma';
 
 @Injectable()
-export class CategoriesService extends CrudService<unknown> {
-  protected readonly delegate: PrismaDelegate;
+export class CategoriesService extends CrudService<CategoryDto> {
+  protected readonly delegate: PrismaDelegate<CategoryDto>;
   protected override readonly config = {
     searchFields: ['name'],
     orderBy: { name: 'asc' as const },
@@ -17,8 +23,8 @@ export class CategoriesService extends CrudService<unknown> {
 }
 
 @Injectable()
-export class SubcategoriesService extends CrudService<unknown> {
-  protected readonly delegate: PrismaDelegate;
+export class SubcategoriesService extends CrudService<SubcategoryDto> {
+  protected readonly delegate: PrismaDelegate<SubcategoryDto>;
   protected override readonly config = {
     searchFields: ['name'],
     include: { category: { select: { id: true, name: true } } },
@@ -32,8 +38,8 @@ export class SubcategoriesService extends CrudService<unknown> {
 }
 
 @Injectable()
-export class BrandsService extends CrudService<unknown> {
-  protected readonly delegate: PrismaDelegate;
+export class BrandsService extends CrudService<BrandDto> {
+  protected readonly delegate: PrismaDelegate<BrandDto>;
   protected override readonly config = {
     searchFields: ['name', 'code'],
     include: { category: { select: { id: true, name: true } } },
@@ -52,8 +58,8 @@ export class BrandsService extends CrudService<unknown> {
 }
 
 @Injectable()
-export class ProductsService extends CrudService<unknown> {
-  protected readonly delegate: PrismaDelegate;
+export class ProductsService extends CrudService<ProductDto> {
+  protected readonly delegate: PrismaDelegate<ProductDto>;
   protected override readonly config = {
     searchFields: ['name'],
     include: {

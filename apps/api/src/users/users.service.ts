@@ -6,8 +6,7 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import type { AdminUserDto } from '@hakmar/contracts';
-import { Role } from '../../generated/prisma/enums';
-import type { Page } from '../common';
+import { Role, type Page } from '../common';
 import { AuthService } from '../auth';
 import { PrismaService } from '../prisma';
 import type { CreateUserDto, UpdateUserDto } from './dto/users.dto';

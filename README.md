@@ -178,12 +178,30 @@ unions in the contract; `sales.model.ts` asserts at compile time that the two
 describe the same set, in both directions. Add a metric to one side only and
 the build fails naming the member and the side that is missing it.
 
+`Role` is checked against two neighbours rather than one. It is a domain
+concept, so `common/types/role.ts` declares it — nineteen files used to
+import it from `generated/prisma`, which made a schema artefact the
+definition of an idea the guards, the decorators and the DTOs are all built
+on. Prisma still owns the column; that file asserts the three agree.
+
 Where money and dates are involved the contract is parameterised over their
 representation (`SummaryDto<M = string>`): the API holds a Postgres numeric
 as a `Prisma.Decimal` and a date as a `Date`, and both become strings through
 JSON. Pretending otherwise is what makes a shared type decorative.
 
-Every response the web reads is covered. `/tables` was the last holdout:
+Every response the web reads is covered, master data included. The nine
+CRUD entities used to run through `CrudService<unknown>`: the generic base
+declared its Prisma delegate as returning `unknown`, so the type argument
+was decorative and `Page<unknown>` came out the other end. The delegate is
+generic over the entity now, which makes assigning `prisma.city` to it a
+field-by-field check the compiler performs.
+
+Related records are optional in those DTOs on purpose — which relations come
+back is decided by each service's `include` config, and the delegate's type
+cannot see it. Optional is what the base class actually guarantees; required
+would be a claim nothing checks.
+
+`/tables` was the other holdout:
 its four ranking queries called `$queryRaw` with no generic at all, so a
 SELECT list that stopped matching what the web renders was nobody's compile
 error. They carry row types now, from the same file the web reads them from.

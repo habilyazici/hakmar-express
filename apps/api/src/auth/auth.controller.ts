@@ -11,8 +11,13 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
-import { Role } from '../../generated/prisma/enums';
-import { CurrentUser, Public, Roles, type AuthenticatedUser } from '../common';
+import {
+  type AuthenticatedUser,
+  CurrentUser,
+  Public,
+  Role,
+  Roles,
+} from '../common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { LOGIN_THROTTLE, SESSION_THROTTLE } from './login-throttle';

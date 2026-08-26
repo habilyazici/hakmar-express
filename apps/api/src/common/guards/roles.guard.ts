@@ -5,10 +5,10 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
-import { Role } from '../../../generated/prisma/enums';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import type { AuthenticatedUser } from '../types/authenticated-user.type';
+import { Role } from '../types/role';
 
 interface RequestWithUser extends Request {
   user?: AuthenticatedUser;

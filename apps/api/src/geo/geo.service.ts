@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
+import type { BranchDto, CityDto, RegionDto } from '@hakmar/contracts';
 import { CrudService, type PrismaDelegate } from '../common';
 import { PrismaService } from '../prisma';
 
 @Injectable()
-export class RegionsService extends CrudService<unknown> {
-  protected readonly delegate: PrismaDelegate;
+export class RegionsService extends CrudService<RegionDto> {
+  protected readonly delegate: PrismaDelegate<RegionDto>;
   protected override readonly config = {
     searchFields: ['name'],
     orderBy: { name: 'asc' as const },
@@ -17,8 +18,8 @@ export class RegionsService extends CrudService<unknown> {
 }
 
 @Injectable()
-export class CitiesService extends CrudService<unknown> {
-  protected readonly delegate: PrismaDelegate;
+export class CitiesService extends CrudService<CityDto> {
+  protected readonly delegate: PrismaDelegate<CityDto>;
   protected override readonly config = {
     searchFields: ['name'],
     include: { region: { select: { id: true, name: true } } },
@@ -32,8 +33,8 @@ export class CitiesService extends CrudService<unknown> {
 }
 
 @Injectable()
-export class BranchesService extends CrudService<unknown> {
-  protected readonly delegate: PrismaDelegate;
+export class BranchesService extends CrudService<BranchDto> {
+  protected readonly delegate: PrismaDelegate<BranchDto>;
   protected override readonly config = {
     searchFields: ['name'],
     include: {

@@ -1,10 +1,10 @@
 import { UnauthorizedException } from '@nestjs/common';
+import { Role } from '../common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import * as bcrypt from 'bcrypt';
 
-import { Role } from '../../generated/prisma/enums';
 import { PrismaService } from '../prisma';
 import { AuthService } from './auth.service';
 

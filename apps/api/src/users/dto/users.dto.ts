@@ -1,4 +1,5 @@
 import { PartialType } from '@nestjs/mapped-types';
+import { Role } from '../../common';
 import {
   IsBoolean,
   IsEmail,
@@ -9,7 +10,6 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { Role } from '../../../generated/prisma/enums';
 
 /**
  * Deliberately not just a length check. A password that clears MinLength(12)

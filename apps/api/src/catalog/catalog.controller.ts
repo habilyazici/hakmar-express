@@ -12,18 +12,18 @@ import {
   Query,
   UseInterceptors,
 } from '@nestjs/common';
-import { Role } from '../../generated/prisma/enums';
 import {
-  PaginationQueryDto,
-  Roles,
   CacheInvalidationInterceptor,
+  PaginationQueryDto,
+  Role,
+  Roles,
 } from '../common';
 import {
   BrandsService,
   CategoriesService,
   ProductsService,
   SubcategoriesService,
-} from './catalog.services';
+} from './catalog.service';
 import {
   CreateBrandDto,
   CreateCategoryDto,

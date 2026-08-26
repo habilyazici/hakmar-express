@@ -14,7 +14,7 @@ function makeDelegate() {
 type Delegate = ReturnType<typeof makeDelegate>;
 
 class NumericService extends CrudService<{ id: number }> {
-  protected readonly delegate: PrismaDelegate;
+  protected readonly delegate: PrismaDelegate<{ id: number }>;
   protected override readonly config = {
     searchFields: ['name', 'code'],
     include: { rel: true },
@@ -28,7 +28,7 @@ class NumericService extends CrudService<{ id: number }> {
 }
 
 class NoSearchService extends CrudService<{ id: number }> {
-  protected readonly delegate: PrismaDelegate;
+  protected readonly delegate: PrismaDelegate<{ id: number }>;
 
   constructor(delegate: Delegate) {
     super();
@@ -37,7 +37,7 @@ class NoSearchService extends CrudService<{ id: number }> {
 }
 
 class StringKeyService extends CrudService<{ code: string }> {
-  protected readonly delegate: PrismaDelegate;
+  protected readonly delegate: PrismaDelegate<{ code: string }>;
 
   constructor(delegate: Delegate) {
     super();

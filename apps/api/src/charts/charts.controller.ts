@@ -1,7 +1,6 @@
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { Controller, Get, Query, UseInterceptors } from '@nestjs/common';
-import { Role } from '../../generated/prisma/enums';
-import { Roles } from '../common';
+import { Role, Roles } from '../common';
 import { SalesMetric } from '../sales';
 import { ChartsService } from './charts.service';
 import { HeatmapQueryDto } from './dto/heatmap-query.dto';

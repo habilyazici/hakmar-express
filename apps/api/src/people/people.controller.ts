@@ -12,11 +12,11 @@ import {
   Query,
   UseInterceptors,
 } from '@nestjs/common';
-import { Role } from '../../generated/prisma/enums';
 import {
-  PaginationQueryDto,
-  Roles,
   CacheInvalidationInterceptor,
+  PaginationQueryDto,
+  Role,
+  Roles,
 } from '../common';
 import {
   CreateCashierDto,
@@ -24,7 +24,7 @@ import {
   UpdateCashierDto,
   UpdateCustomerDto,
 } from './dto/people.dto';
-import { CashiersService, CustomersService } from './people.services';
+import { CashiersService, CustomersService } from './people.service';
 
 const READ = [Role.SUPERADMIN, Role.ADMIN, Role.ANALYST] as const;
 const WRITE = [Role.SUPERADMIN, Role.ADMIN] as const;

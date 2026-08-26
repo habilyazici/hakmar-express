@@ -4,16 +4,21 @@ import type { Page } from './pagination.dto';
  * The subset of a Prisma model delegate this base needs. Declaring it
  * structurally rather than importing a concrete delegate type keeps the base
  * usable for models with a string primary key (Brand) alongside the numeric
- * ones, without any of them losing type safety at the edges — the DTOs that
- * actually validate user input stay explicit and per-entity.
+ * ones.
+ *
+ * It is generic over the entity, and that is the whole point: assigning
+ * `prisma.city` to a `PrismaDelegate<CityDto>` makes the compiler compare
+ * the two field by field. It used to return `unknown`, which made the
+ * assignment vacuous and left every read on this path untyped all the way
+ * out to the response.
  */
-export interface PrismaDelegate {
-  findMany(args?: Record<string, unknown>): Promise<unknown[]>;
+export interface PrismaDelegate<TEntity> {
+  findMany(args?: Record<string, unknown>): Promise<TEntity[]>;
   count(args?: Record<string, unknown>): Promise<number>;
-  findUniqueOrThrow(args: Record<string, unknown>): Promise<unknown>;
-  create(args: Record<string, unknown>): Promise<unknown>;
-  update(args: Record<string, unknown>): Promise<unknown>;
-  delete(args: Record<string, unknown>): Promise<unknown>;
+  findUniqueOrThrow(args: Record<string, unknown>): Promise<TEntity>;
+  create(args: Record<string, unknown>): Promise<TEntity>;
+  update(args: Record<string, unknown>): Promise<TEntity>;
+  delete(args: Record<string, unknown>): Promise<TEntity>;
 }
 
 export interface CrudConfig {
@@ -39,7 +44,7 @@ export interface CrudConfig {
  * correctly without a try/catch in every method.
  */
 export abstract class CrudService<TEntity> {
-  protected abstract readonly delegate: PrismaDelegate;
+  protected abstract readonly delegate: PrismaDelegate<TEntity>;
   protected readonly config: CrudConfig = {};
 
   async list(
@@ -58,25 +63,22 @@ export abstract class CrudService<TEntity> {
       }),
       this.delegate.count({ where }),
     ]);
-    return { items: items as TEntity[], total, limit, offset };
+    return { items, total, limit, offset };
   }
 
-  async findOne(id: number | string): Promise<TEntity> {
-    return (await this.delegate.findUniqueOrThrow({
+  findOne(id: number | string): Promise<TEntity> {
+    return this.delegate.findUniqueOrThrow({
       where: this.whereUnique(id),
       ...(this.config.include ? { include: this.config.include } : {}),
-    })) as TEntity;
+    });
   }
 
-  async create(data: object): Promise<TEntity> {
-    return (await this.delegate.create({ data })) as TEntity;
+  create(data: object): Promise<TEntity> {
+    return this.delegate.create({ data });
   }
 
-  async update(id: number | string, data: object): Promise<TEntity> {
-    return (await this.delegate.update({
-      where: this.whereUnique(id),
-      data,
-    })) as TEntity;
+  update(id: number | string, data: object): Promise<TEntity> {
+    return this.delegate.update({ where: this.whereUnique(id), data });
   }
 
   async remove(id: number | string): Promise<void> {

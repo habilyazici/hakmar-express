@@ -1,7 +1,6 @@
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { Controller, Get, Query, UseInterceptors } from '@nestjs/common';
-import { Role } from '../../generated/prisma/enums';
-import { Roles } from '../common';
+import { Role, Roles } from '../common';
 import { AbcQueryDto, TopNQueryDto } from './dto/kds-query.dto';
 import { MarketBasketQueryDto } from './dto/market-basket-query.dto';
 import { KdsService } from './kds.service';

@@ -20,3 +20,4 @@ export * from './interceptors/cache-invalidation.interceptor';
 export * from './interceptors/transform.interceptor';
 export * from './types/authenticated-user.type';
 export * from './types/contract-check';
+export * from './types/role';

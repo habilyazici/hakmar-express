@@ -10,7 +10,7 @@ import {
   CategoriesService,
   ProductsService,
   SubcategoriesService,
-} from './catalog.services';
+} from './catalog.service';
 
 @Module({
   controllers: [

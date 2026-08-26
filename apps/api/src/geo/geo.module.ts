@@ -6,7 +6,7 @@ import {
 } from './geo.controller';
 import { GeoJsonController } from './geojson.controller';
 import { GeoJsonService } from './geojson.service';
-import { BranchesService, CitiesService, RegionsService } from './geo.services';
+import { BranchesService, CitiesService, RegionsService } from './geo.service';
 
 @Module({
   controllers: [

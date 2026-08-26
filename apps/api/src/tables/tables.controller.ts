@@ -1,7 +1,6 @@
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { Controller, Get, Query, UseInterceptors } from '@nestjs/common';
-import { Role } from '../../generated/prisma/enums';
-import { Roles, LimitQueryDto } from '../common';
+import { LimitQueryDto, Role, Roles } from '../common';
 import { TableRankingQueryDto } from './dto/table-ranking-query.dto';
 import { TablesService } from './tables.service';
 

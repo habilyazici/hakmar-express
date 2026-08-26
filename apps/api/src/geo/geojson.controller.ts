@@ -7,8 +7,7 @@ import {
   ParseEnumPipe,
   UseInterceptors,
 } from '@nestjs/common';
-import { Role } from '../../generated/prisma/enums';
-import { Roles } from '../common';
+import { Role, Roles } from '../common';
 import { GeoJsonService } from './geojson.service';
 
 export enum GeoJsonType {
