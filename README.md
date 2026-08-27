@@ -93,7 +93,7 @@ session family.
 | Charts | `GET /charts/trend`, `/ranking`, `/heatmap`, `/basket-size`, `/profit-waterfall`, `/customer-loyalty`, `/geographic-sales` |
 | Tables | `GET /tables/ranking`, `/price-cost-history`, `/region-cost` |
 | KDS | `GET /kds/abc-analysis`, `/demand-forecast`, `/customer-segmentation`, `/market-basket` |
-| Spatial forecast | `POST /spatial-forecast/run`, `GET /spatial-forecast/runs`, `/runs/:id` |
+| Spatial forecast | `POST /spatial-forecast/run`, `GET /spatial-forecast/runs`, `/runs/:id` (the Tahmin page's run history) |
 | Catalog | `/catalog/categories`, `/subcategories`, `/brands`, `/products` — list/read/create/update/delete |
 | Geo | `/geo/regions`, `/cities`, `/branches` — list/read/create/update/delete; `GET /geo/geojson/city` for the map boundaries |
 | People | `/people/customers`, `/cashiers` — list/read/create/update/delete |
@@ -173,10 +173,16 @@ Every fragment assumes the query aliases `receipts` as `r` and
 travel in query strings. Both apps compile against it, so a disagreement is
 a build failure rather than an empty column someone notices in production.
 
-The sales vocabulary is declared as TypeScript enums in the API and as string
-unions in the contract; `sales.model.ts` asserts at compile time that the two
-describe the same set, in both directions. Add a metric to one side only and
-the build fails naming the member and the side that is missing it.
+Every vocabulary that travels in a query string is declared as a TypeScript
+enum in the API and as a string union in the contract, and asserted at
+compile time to describe the same set in both directions. Add a member to one
+side only and the build fails naming it and the side that is missing it. That
+covers the sales metric/granularity/dimension (`sales.model.ts`), the
+dashboard period, the three forecast enums, the heatmap axis pairings, the
+`/tables` ranking entity and the GeoJSON document type. The last three were
+the gap: two of them existed only inside the API, so the web kept its own
+hand-written copy of the list — which is how a page ends up offering a
+dropdown option the API answers with a 400.
 
 `Role` is checked against two neighbours rather than one. It is a domain
 concept, so `common/types/role.ts` declares it — nineteen files used to
@@ -220,6 +226,17 @@ URL. A cache key that disagrees with the parameters actually sent shows stale
 data on one screen and is invisible on every other, which is only possible
 where the two are written out separately.
 
+Write controls are hidden from roles that cannot use them (`useHasRole`,
+mirroring the API's `@Roles()`). This is presentation, not enforcement — the
+server refuses the request whatever the client renders — but a button whose
+only possible outcome is 403 reads as a broken screen rather than as a
+permission boundary.
+
+Signing out clears the React Query cache. It is a module-level singleton that
+outlives any one session and none of it is keyed by user, so without that the
+next person to sign in on the same machine is served the previous account's
+cached answers.
+
 ## Status
 
 Shipped: the cross-cutting NestJS architecture (guards/interceptors/filters,
@@ -231,12 +248,17 @@ coverage on CI.
 Spatial Forecast fits one ordinary-least-squares model per city (or
 region) over that area's own monthly history, using a linear trend plus
 two Fourier harmonics for seasonality, and layers discount / cost /
-purchasing-power scenarios on top. Areas with too little history fall
+purchasing-power scenarios on top. A discount can be aimed at one category or
+product, in which case the API reads that target's real share of revenue out
+of the database rather than assuming one. Areas with too little history fall
 back to their mean and are labelled as such rather than presented as
-fitted. Every run is recorded in `spatial_forecast_runs`, and city runs are
-drawn as a choropleth of Türkiye's 81 provinces joined on licence-plate
-code. See `apps/api/prisma/data/README.md` for the boundary data's source
-and licence.
+fitted. Every run is recorded in `spatial_forecast_runs` and can be reloaded
+from the page's history list, which redraws the numbers that run actually
+produced rather than recomputing them. City runs are drawn as a choropleth of
+Türkiye's 81 provinces joined on licence-plate code — which is why
+`cities.plate_code` is unique: it is the join key, and two cities sharing one
+would silently paint over each other. See `apps/api/prisma/data/README.md`
+for the boundary data's source and licence.
 
 Web exposes a page per module — Dashboard, Charts, Tables, KDS Analiz,
 Tahmin, İşlemler, Yönetim and Kullanıcılar — behind a shared navigation
