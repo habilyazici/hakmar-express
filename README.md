@@ -82,11 +82,13 @@ The e2e suites run serially (`--runInBand`): they share one database, so they
 are not independent, and running them in parallel produced failures that
 looked random but were one suite reading another's half-finished state.
 
-`test:e2e` also raises the login throttle for its own run. Every request in
-the suite comes from one address, so the per-IP limit that protects a real
-deployment rejects the suite's own logins — six tests failed with 429 for
-anyone who copied `.env.example` and followed the README. Setting
-`LOGIN_RATE_LIMIT` yourself still overrides it.
+`test:e2e` also raises the per-IP throttles for its own run. Every request in
+the suite comes from one address, so the limits that protect a real
+deployment reject the suite's own traffic — six tests failed with 429 on the
+login limit for anyone who copied `.env.example` and followed the README, and
+the forecast limit does the same to the Tahmin suite. Setting
+`LOGIN_RATE_LIMIT`, `SESSION_RATE_LIMIT` or `FORECAST_RATE_LIMIT` yourself
+still overrides it.
 
 To fill an empty database with a fictional retail history — 17 branches, 25
 products, ~2,500 receipts over 25 months, enough for every page to show
@@ -119,7 +121,27 @@ from JavaScript. Because that cookie is the only thing the API accepts from
 a cookie and every other route authenticates with a bearer header, there is
 nothing for a cross-site request to abuse and no separate CSRF token is
 needed. Presenting an already-rotated refresh token revokes the whole
-session family.
+session family — and rotation claims the presented token with a single
+conditional update, so two refreshes arriving together cannot both succeed
+off one token.
+
+Login, the session routes and the forecast run each carry their own per-IP
+limit rather than the loose global one (`LOGIN_RATE_LIMIT`,
+`SESSION_RATE_LIMIT`, `FORECAST_RATE_LIMIT`, sharing `LOGIN_RATE_TTL_MS` as
+their window). The forecast is there because it is the one expensive route
+that cannot be cached: every other analytics endpoint answers from Redis, so
+repeating a request costs nothing, while a forecast run reads the whole
+receipt history and fits a model per province every time.
+
+The built web app is served with a Content-Security-Policy whose `script-src`
+carries no `'unsafe-inline'`: every inline script on the page is hashed at
+build time, so an injected one does not run at all, and `connect-src`,
+`img-src` and `form-action` close the paths an injection would otherwise use
+to send anything out. That was the last third of the audit's fifth critical
+finding — "XSS plus a JWT in localStorage plus no CSP" — with the other two
+already answered by the in-memory access token and the httpOnly cookie above.
+`frame-ancestors` and HSTS cannot come from a `<meta>` tag, so those two
+still belong on whatever serves the files.
 
 | Area | Routes |
 | --- | --- |
@@ -214,10 +236,12 @@ compile time to describe the same set in both directions. Add a member to one
 side only and the build fails naming it and the side that is missing it. That
 covers the sales metric/granularity/dimension (`sales.model.ts`), the
 dashboard period, the three forecast enums, the heatmap axis pairings, the
-`/tables` ranking entity and the GeoJSON document type. The last three were
-the gap: two of them existed only inside the API, so the web kept its own
-hand-written copy of the list — which is how a page ends up offering a
-dropdown option the API answers with a 400.
+`/tables` ranking entity, the GeoJSON document type and the three-of-five
+subset `/charts/ranking` accepts. Four of those were the gap: two existed
+only inside the API, so the web kept its own hand-written copy of the list,
+and the ranking subset was spelled out independently on both sides with
+nothing comparing them — which is how a page ends up offering a dropdown
+option the API answers with a 400.
 
 `Role` is checked against two neighbours rather than one. It is a domain
 concept, so `common/types/role.ts` declares it — nineteen files used to

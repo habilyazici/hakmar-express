@@ -1,32 +1,57 @@
-# React + TypeScript + Vite
+# Web
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React + Vite + TanStack Query, in Turkish, against the API in
+[`../api`](../api). The whole picture is in the [repository
+README](../../README.md); this file covers what is local to this app.
 
-Currently, two official plugins are available:
+## Layout
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```
+src/
+  main.tsx App.tsx      routes, the query-client defaults, the error boundary
+  components/           the shell, and the pieces every page shares:
+                        QueryState, ReferenceSelect, ThemeToggle
+  features/<name>/      one folder per page
+    queries.ts          every request that feature makes, including its cache
+                        keys — pages consume the hooks and never build a URL
+  lib/                  the axios client and its refresh interceptor, number
+                        and date formatting, the theme store
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+`queries.ts` owning both the URL and the cache key is the one rule worth
+stating: a key that disagrees with the parameters actually sent shows stale
+data on one screen and is invisible on every other, and that can only happen
+where the two are written out separately.
+
+Response shapes and every vocabulary that travels in a query string come from
+`@hakmar/contracts`, which the API compiles against too — so a disagreement
+between the two is a build failure rather than an empty column somebody
+notices in production.
+
+## Scripts
+
+```bash
+pnpm dev          # :5174, strictPort — see vite.config.ts for why
+pnpm lint         # oxlint
+pnpm typecheck
+pnpm test         # vitest
+pnpm build        # tsc -b && vite build
+pnpm preview      # serves the real build, Content-Security-Policy included
+```
+
+`VITE_API_URL` must point at the API; `.env.example` has the local value.
+
+## Security notes
+
+Write controls are hidden from roles that cannot use them (`useHasRole`,
+mirroring the API's `@Roles()`). That is presentation, not enforcement — the
+server refuses the request whatever this renders — but a button whose only
+possible outcome is 403 reads as a broken screen rather than as a permission
+boundary.
+
+The access token lives in memory only and the refresh token is an httpOnly
+cookie this code never sees, so there is nothing here for a script to steal.
+The build adds a Content-Security-Policy with no `'unsafe-inline'` in
+`script-src`, so there is nothing for an injected script to do either;
+`vite.config.ts` explains the policy and what it deliberately leaves to
+whatever serves the files.
