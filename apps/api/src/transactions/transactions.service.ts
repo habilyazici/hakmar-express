@@ -115,17 +115,22 @@ export class TransactionsService {
    * travels as a bound parameter — none of it is ever concatenated into the
    * SQL text. The DTO has already constrained each one to an integer or an
    * ISO date before it reaches here.
+   *
+   * The two dates are bound as text and cast `::date`, so both sides of the
+   * comparison are calendar dates. Passing a JS Date instead made the bound
+   * an instant, which Postgres compares by casting `receipt_date` up to
+   * midnight *in the server's timezone* — so the range was inclusive of its
+   * end only where that timezone is at or east of UTC. Run the same query in
+   * a negative-offset zone and `dateTo` silently dropped its own last day.
    */
   private buildWhere(query: ReceiptQueryDto): Prisma.Sql {
     const conditions: Prisma.Sql[] = [];
 
     if (query.dateFrom) {
-      conditions.push(
-        Prisma.sql`r.receipt_date >= ${new Date(query.dateFrom)}`,
-      );
+      conditions.push(Prisma.sql`r.receipt_date >= ${query.dateFrom}::date`);
     }
     if (query.dateTo) {
-      conditions.push(Prisma.sql`r.receipt_date <= ${new Date(query.dateTo)}`);
+      conditions.push(Prisma.sql`r.receipt_date <= ${query.dateTo}::date`);
     }
     if (query.branchId !== undefined) {
       conditions.push(Prisma.sql`r.branch_id = ${query.branchId}`);

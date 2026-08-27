@@ -16,9 +16,10 @@ export class ReceiptQueryDto {
   offset?: number = 0;
 
   /**
-   * Inclusive on both ends. receipt_date is a DATE column, so a bare
-   * YYYY-MM-DD compares against midnight of that day and `<= dateTo`
-   * genuinely includes it — asking for 1–31 January returns the 31st.
+   * Inclusive on both ends, in calendar days. receipt_date is a DATE column
+   * and the service casts these to `date` before comparing, so asking for
+   * 1–31 January returns the 31st wherever the server happens to be. A value
+   * carrying a time of day is accepted and truncated to its date.
    */
   @IsOptional()
   @IsISO8601()
