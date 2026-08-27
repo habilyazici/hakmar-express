@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { QueryState } from '../../components/QueryState';
 import { apiErrorMessage } from '../../lib/api-error';
+import { useHasRole } from '../auth/use-auth';
 import {
   PAGE_SIZE,
   createResource,
@@ -15,7 +16,21 @@ import {
 import { ResourceForm } from './ResourceForm';
 import { readPath, type ResourceDef } from './resource-types';
 
-/** Strips fields the API refuses on edit, plus anything left blank. */
+/**
+ * Turns the form's values into the request body.
+ *
+ * A blank optional field means different things in the two modes, and
+ * treating them alike is what made an optional value impossible to remove:
+ * every blank was dropped, so clearing a branch's coordinates or setting a
+ * customer's gender back to "Belirtilmemiş" sent a PATCH that omitted the
+ * field, and the API — correctly — left the old value alone. On edit a blank
+ * optional field is now an explicit `null`, which every nullable column
+ * accepts and `@IsOptional()` skips validating.
+ *
+ * Required fields stay omitted when blank rather than being sent as null,
+ * which would reach a NOT NULL column. The inputs carry `required`, so the
+ * browser blocks that submit before it gets here.
+ */
 function payloadFor(
   resource: ResourceDef,
   values: Values,
@@ -25,13 +40,22 @@ function payloadFor(
   for (const field of resource.fields) {
     if (mode === 'edit' && field.createOnly) continue;
     const value = values[field.name];
-    if (value === undefined || value === '') continue;
+    const isBlank = value === undefined || value === null || value === '';
+    if (isBlank) {
+      if (mode === 'edit' && !field.required) out[field.name] = null;
+      continue;
+    }
     out[field.name] = value;
   }
   return out;
 }
 
 export function ResourceManager({ resource }: { resource: ResourceDef }) {
+  // Master data is read-open to every role and write-restricted to ADMIN and
+  // above, decided per method on the API. An ANALYST was still shown "Yeni
+  // …", "Düzenle" and "Sil", every one of which could only ever come back
+  // 403 — a permission boundary presented as a broken screen.
+  const canWrite = useHasRole('SUPERADMIN', 'ADMIN');
   const [offset, setOffset] = useState(0);
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Row | null>(null);
@@ -120,11 +144,20 @@ export function ResourceManager({ resource }: { resource: ResourceDef }) {
               }}
             />
           </label>
-          <button className="btn btn-primary" onClick={startCreate}>
-            Yeni {resource.noun}
-          </button>
+          {canWrite && (
+            <button className="btn btn-primary" onClick={startCreate}>
+              Yeni {resource.noun}
+            </button>
+          )}
         </div>
       </div>
+
+      {!canWrite && (
+        <p className="muted" style={{ marginBottom: 12 }}>
+          Bu kayıtları görüntüleyebilirsiniz; değiştirmek için yönetici
+          yetkisi gerekir.
+        </p>
+      )}
 
       {isFormOpen && (
         <div style={{ marginBottom: 16 }}>
@@ -177,9 +210,11 @@ export function ResourceManager({ resource }: { resource: ResourceDef }) {
                           {c.label}
                         </th>
                       ))}
-                      <th scope="col" className="num">
-                        İşlem
-                      </th>
+                      {canWrite && (
+                        <th scope="col" className="num">
+                          İşlem
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -210,31 +245,33 @@ export function ResourceManager({ resource }: { resource: ResourceDef }) {
                               </td>
                             );
                           })}
-                          <td className="num">
-                            <span className="btn-group">
-                              <button
-                                className="btn btn-sm"
-                                onClick={() => startEdit(row)}
-                              >
-                                Düzenle
-                              </button>
-                              <button
-                                className="btn btn-sm"
-                                disabled={remove.isPending}
-                                onClick={() => {
-                                  if (
-                                    window.confirm(
-                                      `Bu ${resource.noun} silinsin mi? Bu işlem geri alınamaz.`,
-                                    )
-                                  ) {
-                                    remove.mutate(row);
-                                  }
-                                }}
-                              >
-                                Sil
-                              </button>
-                            </span>
-                          </td>
+                          {canWrite && (
+                            <td className="num">
+                              <span className="btn-group">
+                                <button
+                                  className="btn btn-sm"
+                                  onClick={() => startEdit(row)}
+                                >
+                                  Düzenle
+                                </button>
+                                <button
+                                  className="btn btn-sm"
+                                  disabled={remove.isPending}
+                                  onClick={() => {
+                                    if (
+                                      window.confirm(
+                                        `Bu ${resource.noun} silinsin mi? Bu işlem geri alınamaz.`,
+                                      )
+                                    ) {
+                                      remove.mutate(row);
+                                    }
+                                  }}
+                                >
+                                  Sil
+                                </button>
+                              </span>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
