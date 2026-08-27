@@ -23,9 +23,15 @@ export class TrendQueryDto {
   // and the more natural way to call this from `params: { metrics: [...] }`)
   // — qs/Express already parses the latter into a real array, so splitting
   // on ',' unconditionally crashed with a 500 instead of a clean 400.
-  @Transform(({ value }: { value: string | string[] }) =>
-    Array.isArray(value) ? value : value.split(','),
-  )
+  //
+  // Deduplicated because a metric asked for twice was answered twice: the
+  // SELECT list gained two columns under one alias, and the cumulative mode
+  // added the same value to its running total once per repeat, reporting
+  // double. Our own UI cannot produce that, but the endpoint is public to
+  // any caller and should not have two answers.
+  @Transform(({ value }: { value: string | string[] }) => [
+    ...new Set(Array.isArray(value) ? value : value.split(',')),
+  ])
   metrics!: SalesMetric[];
 
   @IsOptional()
