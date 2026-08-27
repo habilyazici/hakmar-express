@@ -25,14 +25,24 @@ import type {
   Period,
 } from '@hakmar/contracts';
 
+/*
+ * Both axes label a DATE column, which arrives as midnight UTC. Formatted in
+ * the viewer's own zone that is the previous day everywhere west of UTC, so
+ * every bar on both charts would be captioned one day early — and the totals
+ * beside them would still be right, which is what makes it hard to spot.
+ * lib/format's formatPeriod pins UTC for this reason; so do the İşlemler and
+ * Tablolar date cells. These two were the ones that did not.
+ */
 const dayLabel = new Intl.DateTimeFormat('tr-TR', {
   day: 'numeric',
   month: 'short',
+  timeZone: 'UTC',
 });
 
 const monthLabel = new Intl.DateTimeFormat('tr-TR', {
   month: 'short',
   year: 'numeric',
+  timeZone: 'UTC',
 });
 
 /**

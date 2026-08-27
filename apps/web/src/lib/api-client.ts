@@ -5,8 +5,13 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from 'axios';
 
+// 3001, not Node's habitual 3000, because that is the port this project's API
+// actually runs on (apps/api/.env.example, and the ports table in the README).
+// The fallback only applies when VITE_API_URL is unset, which is exactly the
+// case where a wrong value fails quietly: whatever else on the machine owns
+// 3000 answers, and the app looks broken rather than misconfigured.
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api/v1';
+  import.meta.env.VITE_API_URL ?? 'http://localhost:3001/api/v1';
 
 // withCredentials is what makes the browser attach the httpOnly refresh
 // cookie to /auth/* calls; without it the cookie is set but never sent back.
