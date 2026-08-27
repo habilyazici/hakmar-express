@@ -51,7 +51,11 @@ export function LoginPage() {
       <form
         onSubmit={handleSubmit}
         className="panel stack"
-        style={{ width: 320, gap: 16 }}
+        /* max-width, not width: .centered-page adds 24px of padding either
+           side, so a fixed 320 overflows a 360px-wide phone by eight pixels
+           and the sign-in page — the one screen every session starts on —
+           scrolls sideways. */
+        style={{ width: '100%', maxWidth: 320, gap: 16 }}
       >
         <div className="stack" style={{ gap: 4 }}>
           <h1 className="page-title">Hakmar Express</h1>
