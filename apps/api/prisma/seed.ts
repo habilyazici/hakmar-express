@@ -32,7 +32,9 @@ async function seedAdmin() {
 
   console.log(`Seeded admin user "${user.username}" (role: ${user.role}).`);
   if (!process.env.SEED_ADMIN_PASSWORD) {
-    console.log(`Dev-only password: ${password} — change this before real use.`);
+    console.log(
+      `Dev-only password: ${password} — change this before real use.`,
+    );
   }
 }
 
@@ -69,7 +71,9 @@ async function seedGeoJson() {
   const featureCount = Array.isArray(parsed.features)
     ? parsed.features.length
     : 0;
-  console.log(`Seeded city GeoJSON (${featureCount} features, v${GEOJSON_VERSION}).`);
+  console.log(
+    `Seeded city GeoJSON (${featureCount} features, v${GEOJSON_VERSION}).`,
+  );
 }
 
 async function main() {

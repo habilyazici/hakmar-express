@@ -161,13 +161,40 @@ const CATALOG: {
 ];
 
 const FIRST_NAMES = [
-  'Ayşe', 'Mehmet', 'Zeynep', 'Mustafa', 'Elif', 'Ahmet', 'Fatma', 'Ali',
-  'Emine', 'Hüseyin', 'Hatice', 'Burak', 'Merve', 'Can', 'Selin', 'Emre',
-  'Deniz', 'Ceren', 'Okan', 'Gizem',
+  'Ayşe',
+  'Mehmet',
+  'Zeynep',
+  'Mustafa',
+  'Elif',
+  'Ahmet',
+  'Fatma',
+  'Ali',
+  'Emine',
+  'Hüseyin',
+  'Hatice',
+  'Burak',
+  'Merve',
+  'Can',
+  'Selin',
+  'Emre',
+  'Deniz',
+  'Ceren',
+  'Okan',
+  'Gizem',
 ];
 const LAST_NAMES = [
-  'Yılmaz', 'Kaya', 'Demir', 'Şahin', 'Çelik', 'Yıldız', 'Öztürk', 'Aydın',
-  'Arslan', 'Doğan', 'Kılıç', 'Aslan',
+  'Yılmaz',
+  'Kaya',
+  'Demir',
+  'Şahin',
+  'Çelik',
+  'Yıldız',
+  'Öztürk',
+  'Aydın',
+  'Arslan',
+  'Doğan',
+  'Kılıç',
+  'Aslan',
 ];
 
 /**
@@ -187,7 +214,28 @@ function between(min: number, max: number): number {
 }
 
 const MONTHS = 24;
-const YEARS = [2025, 2026];
+
+/**
+ * Every calendar year the receipt window touches, derived rather than listed.
+ *
+ * The window is anchored on today, so a hardcoded pair drifted out from under
+ * it: with MONTHS at 24 the oldest receipts are two years back, and the five
+ * months before January of the earlier year had no price or cost row for
+ * their year at all.
+ */
+const YEARS: number[] = (() => {
+  const oldest = new Date();
+  oldest.setUTCHours(0, 0, 0, 0);
+  oldest.setUTCDate(1);
+  oldest.setUTCMonth(oldest.getUTCMonth() - MONTHS);
+  const years: number[] = [];
+  for (let y = oldest.getUTCFullYear(); y <= new Date().getUTCFullYear(); y++) {
+    years.push(y);
+  }
+  return years;
+})();
+
+const money = (value: number) => Number(value.toFixed(2));
 
 async function isEmpty(): Promise<boolean> {
   const counts = await Promise.all([
@@ -245,13 +293,17 @@ async function main() {
       });
       const [lat, lon] = COORDS[plate];
       // İstanbul and Ankara carry more of the business, as they would.
-      const weight = plate === 34 ? 3 : plate === 6 ? 2 : plate === 35 ? 1.6 : 1;
+      const weight =
+        plate === 34 ? 3 : plate === 6 ? 2 : plate === 35 ? 1.6 : 1;
       const branchCount = plate === 34 ? 3 : plate === 6 ? 2 : 1;
 
       for (let b = 0; b < branchCount; b++) {
         const branch = await prisma.branch.create({
           data: {
-            name: branchCount > 1 ? `${cityName} ${b + 1}. Şube` : `${cityName} Şube`,
+            name:
+              branchCount > 1
+                ? `${cityName} ${b + 1}. Şube`
+                : `${cityName} Şube`,
             cityId: city.id,
             latitude: lat + (rand() - 0.5) * 0.1,
             longitude: lon + (rand() - 0.5) * 0.1,
@@ -275,6 +327,20 @@ async function main() {
 
   // ---- catalog ----
   const products: { id: number; unit: number }[] = [];
+
+  /**
+   * The price and cost rows, kept so every line item can point at the exact
+   * one it was sold under.
+   *
+   * Without this the line items invented their own price and cost and left
+   * priceId and costId null — all 7,383 of them. /tables/region-cost joins
+   * sales to costs through receipt_items.cost_id, so its Satış and Kâr
+   * columns were ₺0 for every row, on a dataset whose whole purpose is to
+   * make every page show something real. The catalog comment below even said
+   * the costs existed so that table would have something to show.
+   */
+  const priceRows = new Map<string, { id: number; unitPrice: number }>();
+  const costRows = new Map<string, { id: number; unitCost: number }>();
 
   for (const group of CATALOG) {
     const category = await prisma.category.create({
@@ -307,24 +373,21 @@ async function main() {
       // Prices and regional costs per year, so the price-history and
       // region-cost tables have something to show.
       for (const [i, year] of YEARS.entries()) {
-        await prisma.productPrice.create({
-          data: {
-            productId: product.id,
-            year,
-            unitPrice: Number((unit * (1 + i * 0.22)).toFixed(2)),
-          },
+        const unitPrice = money(unit * (1 + i * 0.22));
+        const price = await prisma.productPrice.create({
+          data: { productId: product.id, year, unitPrice },
         });
+        priceRows.set(`${product.id}:${year}`, { id: price.id, unitPrice });
+
         for (const regionId of regionIds) {
-          await prisma.productCost.create({
-            data: {
-              productId: product.id,
-              regionId,
-              year,
-              // Cost varies a little by region, which is the point of that table.
-              unitCost: Number(
-                (unit * (1 + i * 0.22) * (0.58 + rand() * 0.09)).toFixed(2),
-              ),
-            },
+          // Cost varies a little by region, which is the point of that table.
+          const unitCost = money(unitPrice * (0.58 + rand() * 0.09));
+          const cost = await prisma.productCost.create({
+            data: { productId: product.id, regionId, year, unitCost },
+          });
+          costRows.set(`${product.id}:${regionId}:${year}`, {
+            id: cost.id,
+            unitCost,
           });
         }
       }
@@ -363,7 +426,8 @@ async function main() {
 
     // A summer peak and a slow trend upward, so the seasonal model in the
     // forecast has a real signal to find.
-    const seasonal = 1 + 0.28 * Math.sin((2 * Math.PI * anchor.getUTCMonth()) / 12);
+    const seasonal =
+      1 + 0.28 * Math.sin((2 * Math.PI * anchor.getUTCMonth()) / 12);
     const trend = 1 + (MONTHS - monthsAgo) * 0.011;
 
     for (const branch of branches) {
@@ -397,19 +461,32 @@ async function main() {
           if (chosen.has(product.id)) continue;
           chosen.add(product.id);
 
-          const qty = between(1, 4);
-          const price = Number(
-            (product.unit * qty * seasonal * trend * branch.weight * 0.4).toFixed(2),
+          // Season, trend and branch size move demand, not unit economics: a
+          // busy month sells more units at the shelf price, it does not
+          // invent a different one. That keeps the line consistent with the
+          // price and cost rows it points at, which is what makes
+          // /tables/region-cost add up.
+          const year = date.getUTCFullYear();
+          const regionId = regionIds[branch.regionIndex];
+          const priceRow = priceRows.get(`${product.id}:${year}`)!;
+          const costRow = costRows.get(`${product.id}:${regionId}:${year}`)!;
+
+          const qty = Math.max(
+            1,
+            Math.round(between(1, 4) * seasonal * trend * branch.weight),
           );
-          const cost = Number((price * (0.58 + rand() * 0.09)).toFixed(2));
+          const totalPrice = money(priceRow.unitPrice * qty);
+          const totalCost = money(costRow.unitCost * qty);
           await prisma.receiptItem.create({
             data: {
               receiptId: receipt.id,
               productId: product.id,
               quantity: qty,
-              totalPrice: price,
-              totalCost: cost,
-              totalMargin: Number((price - cost).toFixed(2)),
+              priceId: priceRow.id,
+              costId: costRow.id,
+              totalPrice,
+              totalCost,
+              totalMargin: money(totalPrice - totalCost),
             },
           });
           itemCount++;
