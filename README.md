@@ -19,13 +19,13 @@ plan for the full rationale.
 ## Getting started
 
 ```bash
-docker compose up -d                          # postgres on :5433, redis on :6379
+docker compose up -d                          # postgres on :5433, redis on :6380
 pnpm install
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
 pnpm --filter api exec prisma migrate dev     # creates the schema
 pnpm --filter api exec prisma db seed         # creates the first superadmin
-pnpm dev                                      # api on :3000, web on :5173
+pnpm dev                                      # api on :3001, web on :5174
 ```
 
 The seed creates the first superadmin from `SEED_ADMIN_USERNAME` and
@@ -35,12 +35,34 @@ to change immediately. Changing the values and re-running the seed does not
 reset an existing account: the upsert leaves it alone, so change the password
 through the app or delete the row first.
 
-Postgres is published on **5433**, not its default 5432. That default is a
-busy port on a developer machine, and when something else already holds it
-this project's container just fails to start — while `DATABASE_URL`
-cheerfully connects to whatever else is listening, which fails much later and
-says something unrelated. Anything else you run keeps 5432; this keeps 5433.
-Inside the compose network the port is still 5432.
+### Ports
+
+Nothing here sits on the default its ecosystem fights over, so this project
+runs beside whatever else you have open:
+
+| | default | here |
+| --- | --- | --- |
+| Postgres | 5432 | **5433** |
+| Redis | 6379 | **6380** |
+| API | 3000 | **3001** |
+| Web | 5173 | **5174** |
+
+Each default fails in a way that does not look like a port problem. A
+container that loses the race for 5432 just does not start, while
+`DATABASE_URL` connects perfectly happily to whichever server did — the first
+sign of that here was an authentication error from a database that had never
+heard of this project. Redis is worse: no authentication and numbered
+databases, so this app's cache would land inside another project's instance
+with nothing anywhere reporting a problem. Vite quietly moves to the next
+free port, which then fails CORS because the API is configured against the
+one it did not get.
+
+Inside the compose network the ports are unchanged. The API's own default is
+still 3000 — a deployment sets `PORT` — and Vite's is pinned in
+`apps/web/vite.config.ts` with `strictPort`, so it fails loudly rather than
+drifting away from `WEB_ORIGIN`. Override either with `PORT` and `WEB_PORT`.
+CI leaves everything on the standard ports: a service container has the
+runner to itself.
 
 `JWT_ACCESS_SECRET` must be at least 32 characters; the app validates its
 whole environment at startup and refuses to boot otherwise, naming the
@@ -267,7 +289,10 @@ of the database rather than assuming one. Areas with too little history fall
 back to their mean and are labelled as such rather than presented as
 fitted. Every run is recorded in `spatial_forecast_runs` and can be reloaded
 from the page's history list, which redraws the numbers that run actually
-produced rather than recomputing them. City runs are drawn as a choropleth of
+produced rather than recomputing them. The table keeps the most recent 200
+runs and prunes the rest: each row holds an entire per-area result, so
+retaining them forever would be pure growth on a button anyone can keep
+pressing. City runs are drawn as a choropleth of
 Türkiye's 81 provinces joined on licence-plate code — which is why
 `cities.plate_code` is unique: it is the join key, and two cities sharing one
 would silently paint over each other. See `apps/api/prisma/data/README.md`

@@ -24,8 +24,13 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    # 6380 on the host, for the same reason postgres is on 5433 — and the
+    # failure here is worse. Redis has no authentication and numbered
+    # databases rather than named ones, so if another project's instance wins
+    # the race for 6379 this app's cache lands in it, alongside whatever else
+    # is already there, and nothing anywhere reports a problem.
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis_data:/data
     healthcheck:

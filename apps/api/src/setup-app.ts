@@ -32,7 +32,7 @@ export function setupApp(app: INestApplication): INestApplication {
   // browsers reject alongside credentials anyway — is what lets the refresh
   // cookie travel on the XHR from the web app.
   app.enableCors({
-    origin: process.env.WEB_ORIGIN ?? 'http://localhost:5173',
+    origin: process.env.WEB_ORIGIN ?? 'http://localhost:5174',
     credentials: true,
   });
   app.setGlobalPrefix('api/v1');
