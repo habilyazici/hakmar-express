@@ -185,12 +185,17 @@ export function TransactionsPage() {
       <section className="section">
         <div className="panel">
           <div className="toolbar" style={{ marginBottom: 0, paddingBottom: 0, border: 0 }}>
+            {/* Each end bounds the other. Without it the pair can be put
+                the wrong way round, and the API answers a backwards range
+                with an empty page — which reads as "no receipts" rather
+                than as a filter that cannot match anything. */}
             <label className="field field--inline">
               <span>Başlangıç</span>
               <input
                 className="input"
                 type="date"
                 value={dateFrom}
+                max={dateTo || undefined}
                 onChange={(e) => withReset(setDateFrom)(e.target.value)}
               />
             </label>
@@ -200,6 +205,7 @@ export function TransactionsPage() {
                 className="input"
                 type="date"
                 value={dateTo}
+                min={dateFrom || undefined}
                 onChange={(e) => withReset(setDateTo)(e.target.value)}
               />
             </label>

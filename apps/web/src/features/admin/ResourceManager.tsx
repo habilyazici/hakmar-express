@@ -227,7 +227,7 @@ export function ResourceManager({ resource }: { resource: ResourceDef }) {
                             const text =
                               raw === null || raw === undefined
                                 ? '—'
-                                : String(raw);
+                                : (c.labels?.[String(raw)] ?? String(raw));
                             return i === 0 ? (
                               <th
                                 key={c.key}

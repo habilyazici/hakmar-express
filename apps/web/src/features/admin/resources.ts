@@ -12,6 +12,18 @@ import type {
 import { defineResource, type ResourceDef } from './resource-types';
 
 /**
+ * Gender is stored as a single letter, and the two places it appears have to
+ * agree: the form offered "Kadın / Erkek / Diğer" while the table beside it
+ * printed F / M / O, which reads as raw database output leaking into the UI.
+ * One map, read by both.
+ */
+const GENDER_LABELS: Record<string, string> = {
+  F: 'Kadın',
+  M: 'Erkek',
+  O: 'Diğer',
+};
+
+/**
  * One declaration per entity, checked against the API's DTOs.
  *
  * It used to say it mirrored them, by hand, with nothing comparing the two:
@@ -232,7 +244,7 @@ export const RESOURCES: ResourceDef[] = [
       { key: 'id', label: '#', align: 'right' },
       { key: 'firstName', label: 'Ad' },
       { key: 'lastName', label: 'Soyad' },
-      { key: 'gender', label: 'Cinsiyet' },
+      { key: 'gender', label: 'Cinsiyet', labels: GENDER_LABELS },
     ],
     fields: [
       { name: 'firstName', label: 'Ad', type: 'text', required: true },
@@ -243,9 +255,10 @@ export const RESOURCES: ResourceDef[] = [
         type: 'select',
         options: [
           { value: '', label: 'Belirtilmemiş' },
-          { value: 'F', label: 'Kadın' },
-          { value: 'M', label: 'Erkek' },
-          { value: 'O', label: 'Diğer' },
+          ...Object.entries(GENDER_LABELS).map(([value, label]) => ({
+            value,
+            label,
+          })),
         ],
       },
     ],

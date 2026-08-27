@@ -56,6 +56,14 @@ export interface ColumnDef<T = Record<string, unknown>> {
   key: ColumnPath<T>;
   label: string;
   align?: 'left' | 'right';
+  /**
+   * How to print a column whose stored value is a code rather than a word —
+   * a customer's gender is one letter in the database. A value with no entry
+   * prints as itself: the column is not constrained by the database, so a row
+   * holding something this build has no word for is possible, and showing it
+   * is more honest than blanking it.
+   */
+  labels?: Record<string, string>;
 }
 
 export interface ResourceDef<T = Record<string, unknown>> {

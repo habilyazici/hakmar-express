@@ -23,6 +23,13 @@ const SEGMENT_TONE: Record<RfmRow['segment'], string> = {
   Lost: 'tag--bad',
 };
 
+/**
+ * ABC covers the whole catalogue, and the class counts below are over all of
+ * it — but the table only ever drew the first fifty rows, with nothing saying
+ * so. A list that stops without explaining itself reads as missing data.
+ */
+const ABC_VISIBLE_ROWS = 50;
+
 const ABC_TONE: Record<AbcRow['class'], string> = {
   A: 'tag--good',
   B: 'tag--warn',
@@ -67,6 +74,8 @@ function AbcPanel() {
                   Kümülatif ciro payına göre: A sınıfı ilk %80, B %95'e kadar,
                   C kalanı. A: {counts.A ?? 0} ürün · B: {counts.B ?? 0} · C:{' '}
                   {counts.C ?? 0}
+                  {rows.length > ABC_VISIBLE_ROWS &&
+                    ` · ${integer.format(rows.length)} üründen en yüksek cirolu ${ABC_VISIBLE_ROWS} tanesi listeleniyor`}
                 </p>
                 <div className="table-scroll">
                   <table className="table">
@@ -78,7 +87,7 @@ function AbcPanel() {
                       </tr>
                     </thead>
                     <tbody>
-                      {rows.slice(0, 50).map((row) => (
+                      {rows.slice(0, ABC_VISIBLE_ROWS).map((row) => (
                         <tr key={row.id}>
                           <th scope="row">{row.name}</th>
                           <td className="num">{currency.format(num(row.revenue))}</td>
