@@ -1,4 +1,17 @@
 {
   "extends": "./tsconfig.json",
+  // Only src. The build used to compile prisma.config.ts and prisma/*.ts too,
+  // so the deployable bundle carried the demo seeder — a script whose --force
+  // mode wipes the database. Nothing needs them compiled: the Prisma CLI
+  // reads the config from source and runs the seed through tsx, and
+  // `pnpm typecheck` uses tsconfig.json, which still covers both.
+  //
+  // The entry point still lands at dist/src/main.js rather than dist/main.js:
+  // src imports the generated Prisma client from outside src, so the
+  // compiler's inferred root spans the whole package. Moving the client under
+  // src would fix that and would also put it inside the boundaries plugin's
+  // element patterns, where it would be classified as a feature module. Not
+  // worth it — `start:prod` names the real path instead.
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
 }
