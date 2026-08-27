@@ -10,6 +10,11 @@
  *   pnpm --filter api seed:demo
  *   pnpm --filter api seed:demo -- --force   # wipe and regenerate
  */
+// Must be first: this script is run straight through tsx (`pnpm --filter api
+// seed:demo`), with no Prisma CLI in front of it to load the environment.
+// Without this DATABASE_URL is undefined and node-postgres fails with an
+// unrelated-looking SASL error instead of connecting.
+import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
 

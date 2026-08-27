@@ -1,3 +1,7 @@
+// The Prisma CLI loads .env through prisma.config.ts before spawning this,
+// but loading it here too means the file also runs standalone. dotenv never
+// overrides a variable that is already set, so this is a no-op in CI.
+import 'dotenv/config';
 import * as bcrypt from 'bcrypt';
 import { readFileSync } from 'fs';
 import { join } from 'path';
