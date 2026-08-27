@@ -16,6 +16,12 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
+    /* The Vite scaffold ships `strict` unset, which is the same looseness the
+       API's tsconfig calls out and turns off: parameters silently inferred as
+       `any`, nullable values used without a check. The source is already
+       clean under it, so leaving it off was only holding the door open. */
+    "strict": true,
+
     /* Linting */
     "noUnusedLocals": true,
     "noUnusedParameters": true,

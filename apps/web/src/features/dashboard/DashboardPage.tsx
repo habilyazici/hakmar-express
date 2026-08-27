@@ -1,4 +1,17 @@
 import { useState } from 'react';
+// Number formatting lives in lib/format, which every other page reads it
+// from. This one kept its own currency/compact/count formatters, so a change
+// to how the app writes lira reached seven screens and quietly missed this
+// one. The two date labels below stay here: they are this page's own choice
+// of axis caption, not a shared convention.
+import {
+  compactCurrency,
+  currency,
+  deltaClass,
+  integer,
+  num,
+  signedPercent,
+} from '../../lib/format';
 import {
   useDailySummary,
   useGeneralStats,
@@ -11,21 +24,6 @@ import type {
   MonthlySalesRow,
   Period,
 } from '@hakmar/contracts';
-
-const currency = new Intl.NumberFormat('tr-TR', {
-  style: 'currency',
-  currency: 'TRY',
-  maximumFractionDigits: 0,
-});
-
-const compactCurrency = new Intl.NumberFormat('tr-TR', {
-  style: 'currency',
-  currency: 'TRY',
-  notation: 'compact',
-  maximumFractionDigits: 1,
-});
-
-const count = new Intl.NumberFormat('tr-TR');
 
 const dayLabel = new Intl.DateTimeFormat('tr-TR', {
   day: 'numeric',
@@ -158,18 +156,12 @@ function TrendSection({
 }
 
 function DeltaCell({ value }: { value: number | null }) {
-  if (value === null) {
-    return (
-      <td className="num delta-neutral" title="Önceki dönemde veri yok">
-        —
-      </td>
-    );
-  }
-  const className = value >= 0 ? 'delta-positive' : 'delta-negative';
   return (
-    <td className={`num ${className}`}>
-      {value >= 0 ? '+' : ''}
-      {value.toFixed(1)}%
+    <td
+      className={`num ${deltaClass(value)}`}
+      title={value === null ? 'Önceki dönemde veri yok' : undefined}
+    >
+      {signedPercent(value)}
     </td>
   );
 }
@@ -178,7 +170,7 @@ function toDayPoints(rows: DailySummaryRow[] | undefined) {
   return (rows ?? []).map((row) => ({
     key: row.day,
     label: dayLabel.format(new Date(row.day)),
-    value: Number(row.sales),
+    value: num(row.sales),
   }));
 }
 
@@ -186,7 +178,7 @@ function toMonthPoints(rows: MonthlySalesRow[] | undefined) {
   return (rows ?? []).map((row) => ({
     key: row.month,
     label: monthLabel.format(new Date(row.month)),
-    value: Number(row.sales),
+    value: num(row.sales),
   }));
 }
 
@@ -229,32 +221,32 @@ export function DashboardPage() {
           <StatCard
             label="Toplam Satış"
             value={
-              summary.data ? currency.format(Number(summary.data.totalSales)) : '…'
+              summary.data ? currency.format(num(summary.data.totalSales)) : '…'
             }
           />
           <StatCard
             label="Toplam Kâr"
             value={
               summary.data
-                ? currency.format(Number(summary.data.totalProfit))
+                ? currency.format(num(summary.data.totalProfit))
                 : '…'
             }
           />
           <StatCard
             label="Şube"
-            value={stats.data ? count.format(stats.data.branches) : '…'}
+            value={stats.data ? integer.format(stats.data.branches) : '…'}
           />
           <StatCard
             label="Müşteri"
-            value={stats.data ? count.format(stats.data.customers) : '…'}
+            value={stats.data ? integer.format(stats.data.customers) : '…'}
           />
           <StatCard
             label="Ürün"
-            value={stats.data ? count.format(stats.data.products) : '…'}
+            value={stats.data ? integer.format(stats.data.products) : '…'}
           />
           <StatCard
             label="Fiş"
-            value={stats.data ? count.format(stats.data.receipts) : '…'}
+            value={stats.data ? integer.format(stats.data.receipts) : '…'}
           />
         </div>
       </section>
@@ -314,10 +306,10 @@ export function DashboardPage() {
                   <tr>
                     <th scope="row">Fiş sayısı</th>
                     <td className="num">
-                      {count.format(performance.data.current.orders)}
+                      {integer.format(performance.data.current.orders)}
                     </td>
                     <td className="num">
-                      {count.format(performance.data.previous.orders)}
+                      {integer.format(performance.data.previous.orders)}
                     </td>
                     <DeltaCell value={performance.data.changePct.orders} />
                   </tr>
@@ -334,10 +326,10 @@ export function DashboardPage() {
                   <tr>
                     <th scope="row">Farklı ürün</th>
                     <td className="num">
-                      {count.format(performance.data.current.distinctProducts)}
+                      {integer.format(performance.data.current.distinctProducts)}
                     </td>
                     <td className="num">
-                      {count.format(performance.data.previous.distinctProducts)}
+                      {integer.format(performance.data.previous.distinctProducts)}
                     </td>
                     <DeltaCell
                       value={performance.data.changePct.distinctProducts}
