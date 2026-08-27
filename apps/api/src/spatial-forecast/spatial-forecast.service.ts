@@ -42,6 +42,21 @@ type BaseMetric = (typeof BASE_METRICS)[number];
 /** Trend + two seasonal harmonics, so 5 features; fitOls needs featureCount+2 rows. */
 const MIN_OBSERVATIONS = 7;
 
+/**
+ * How many runs the history keeps.
+ *
+ * Each row stores the entire per-area result — 81 provinces with four metrics,
+ * a baseline and a change for each — because reloading a run has to show the
+ * numbers it produced rather than recomputing them. That is the right trade
+ * for the feature and the wrong one to make unbounded: nothing ever deleted a
+ * row, so a page anyone can hold down a button on wrote tens of kilobytes per
+ * click, forever. The same reasoning already prunes refresh tokens.
+ *
+ * 200 is far more than the twenty the page lists and still bounds the table
+ * at a few megabytes.
+ */
+const RETAINED_RUNS = 200;
+
 /** The spec builds MetricValues fixtures; the rest are used in signatures. */
 export type { MetricValues } from '@hakmar/contracts';
 
@@ -372,10 +387,38 @@ export class SpatialForecastService {
       },
       select: { id: true },
     });
+    await this.pruneOldRuns();
+
     this.logger.log(
       `Saved spatial forecast run ${run.id} (${result.params.mapType}/${result.params.metric}, ${result.params.periodMonths}m).`,
     );
     return run.id;
+  }
+
+  /**
+   * Drops everything older than the newest RETAINED_RUNS.
+   *
+   * Ordered by id rather than createdAt: it is a monotonic sequence, so two
+   * runs saved in the same millisecond still have a defined order, and the
+   * threshold below can be a single comparison rather than a set membership.
+   */
+  private async pruneOldRuns(): Promise<void> {
+    const [oldestKept] = await this.prisma.spatialForecastRun.findMany({
+      select: { id: true },
+      orderBy: { id: 'desc' },
+      skip: RETAINED_RUNS,
+      take: 1,
+    });
+    if (!oldestKept) return;
+
+    const { count } = await this.prisma.spatialForecastRun.deleteMany({
+      where: { id: { lte: oldestKept.id } },
+    });
+    if (count > 0) {
+      this.logger.log(
+        `Pruned ${count} spatial forecast run(s) beyond the newest ${RETAINED_RUNS}.`,
+      );
+    }
   }
 
   /**

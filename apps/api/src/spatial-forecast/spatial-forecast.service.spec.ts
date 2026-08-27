@@ -152,6 +152,7 @@ describe('SpatialForecastService', () => {
     spatialForecastRun: {
       create: jest.Mock;
       findMany: jest.Mock;
+      deleteMany: jest.Mock;
       findUniqueOrThrow: jest.Mock;
     };
   };
@@ -177,6 +178,7 @@ describe('SpatialForecastService', () => {
       spatialForecastRun: {
         create: jest.fn().mockResolvedValue({ id: 1 }),
         findMany: jest.fn().mockResolvedValue([]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
         findUniqueOrThrow: jest.fn(),
       },
     };
@@ -345,7 +347,8 @@ describe('SpatialForecastService', () => {
     expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
   });
 
-  it('persists a run without the per-area payload in the listing', async () => {
+  /** One city with enough history to model, so `run` produces a real result. */
+  async function aRun() {
     prisma.$queryRaw.mockResolvedValue(monthlyHistory());
     prisma.city.findMany.mockResolvedValue([
       {
@@ -356,21 +359,53 @@ describe('SpatialForecastService', () => {
         region: { name: 'Test Region' },
       },
     ]);
+    return service.run({ periodMonths: 3 });
+  }
 
-    const result = await service.run({ periodMonths: 3 });
-    const runId = await service.saveRun(result, 7);
+  it('records the run against the account that asked for it', async () => {
+    const runId = await service.saveRun(await aRun(), 7);
 
     expect(runId).toBe(1);
-    const calls = prisma.spatialForecastRun.create.mock.calls as {
-      data: { periodMonths: number; createdById: number };
-    }[][];
-    expect(calls[0][0].data.periodMonths).toBe(3);
-    expect(calls[0][0].data.createdById).toBe(7);
+    const [args] = prisma.spatialForecastRun.create.mock.calls[0] as [
+      { data: { periodMonths: number; createdById: number } },
+    ];
+    expect(args.data.periodMonths).toBe(3);
+    expect(args.data.createdById).toBe(7);
+  });
 
+  it('leaves the stored payload out of the history listing', async () => {
     await service.listRuns(10);
-    const listCalls = prisma.spatialForecastRun.findMany.mock.calls as {
-      select: Record<string, boolean>;
-    }[][];
-    expect(listCalls[0][0].select.resultJson).toBeUndefined();
+
+    const [args] = prisma.spatialForecastRun.findMany.mock.calls[0] as [
+      { select: Record<string, boolean>; take: number },
+    ];
+    expect(args.take).toBe(10);
+    expect(args.select.resultJson).toBeUndefined();
+    expect(args.select.id).toBe(true);
+  });
+
+  /**
+   * Each row holds an entire per-area result, and nothing used to delete one.
+   * The listing only ever shows the newest handful, so an unbounded table was
+   * pure growth — the same problem refresh tokens had.
+   */
+  it('drops the runs that fall outside the retained window', async () => {
+    // The oldest run still worth keeping; everything at or below it goes.
+    prisma.spatialForecastRun.findMany.mockResolvedValue([{ id: 42 }]);
+    prisma.spatialForecastRun.deleteMany.mockResolvedValue({ count: 42 });
+
+    await service.saveRun(await aRun(), 7);
+
+    expect(prisma.spatialForecastRun.deleteMany).toHaveBeenCalledWith({
+      where: { id: { lte: 42 } },
+    });
+  });
+
+  it('deletes nothing while the history is still under the limit', async () => {
+    prisma.spatialForecastRun.findMany.mockResolvedValue([]);
+
+    await service.saveRun(await aRun(), 7);
+
+    expect(prisma.spatialForecastRun.deleteMany).not.toHaveBeenCalled();
   });
 });
