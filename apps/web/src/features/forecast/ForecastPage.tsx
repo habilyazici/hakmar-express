@@ -11,7 +11,7 @@ import {
   num,
   signedPercent,
 } from '../../lib/format';
-import { useReferenceList } from '../../lib/reference-query';
+import { ReferenceSelect } from '../../components/ReferenceSelect';
 import {
   DISCOUNT_SCOPES,
   MAP_TYPES,
@@ -70,35 +70,22 @@ function DiscountTargetSelect({
   value: number | undefined;
   onChange: (value: number | undefined) => void;
 }) {
-  const endpoint = SCOPE_ENDPOINTS[scope];
-  const query = useReferenceList<{ id: number; name: string }>(endpoint);
   const id = useId();
 
   return (
     <div className="field">
       <label htmlFor={id}>{SCOPE_LABELS[scope]}</label>
-      <select
+      <ReferenceSelect<{ id: number; name: string }>
         id={id}
-        className="input"
-        required
-        disabled={query.isPending}
+        endpoint={SCOPE_ENDPOINTS[scope]}
+        valueKey="id"
+        labelOf={(item) => item.name}
         value={value === undefined ? '' : String(value)}
-        onChange={(e) =>
-          onChange(e.target.value === '' ? undefined : Number(e.target.value))
-        }
-      >
-        <option value="">
-          {query.isPending ? 'Yükleniyor…' : 'Seçiniz…'}
-        </option>
-        {(query.data?.items ?? []).map((item) => (
-          <option key={item.id} value={String(item.id)}>
-            {item.name}
-          </option>
-        ))}
-      </select>
-      <span className="field__hint">
-        İskonto yalnızca bu seçimin cirodaki payına uygulanır.
-      </span>
+        required
+        emptyLabel="Seçiniz…"
+        hint="İskonto yalnızca bu seçimin cirodaki payına uygulanır."
+        onChange={(raw) => onChange(raw === '' ? undefined : Number(raw))}
+      />
     </div>
   );
 }
@@ -224,7 +211,11 @@ function RunHistory({
   restoringId: number | null;
   onRestore: (id: number) => void;
 }) {
-  const runs = useForecastRuns();
+  // Twenty is enough to find the run you just made; the rest is an archive
+  // you occasionally need. The API caps retention well above this, so "more"
+  // has a definite end rather than growing without bound.
+  const [limit, setLimit] = useState(20);
+  const runs = useForecastRuns(limit);
 
   return (
     <section className="section">
@@ -279,6 +270,22 @@ function RunHistory({
                   ))}
                 </tbody>
               </table>
+
+              {rows.length >= limit && (
+                <div className="row-between" style={{ marginTop: 12 }}>
+                  <span className="muted">
+                    En son {rows.length} çalıştırma gösteriliyor.
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    disabled={runs.isFetching}
+                    onClick={() => setLimit((n) => n + 30)}
+                  >
+                    {runs.isFetching ? 'Yükleniyor…' : 'Daha fazla göster'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </QueryState>

@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { QueryState } from '../../components/QueryState';
+import { ReferenceSelect } from '../../components/ReferenceSelect';
 import { currency, decimal, integer, num } from '../../lib/format';
 import {
   useReceipt,
   useReceipts,
-  useNamedReferenceList,
   type Named,
   type ReceiptFilters,
 } from './queries';
@@ -41,22 +41,17 @@ function FilterSelect({
   endpoint: string;
   onChange: (value: string) => void;
 }) {
-  const query = useNamedReferenceList(endpoint);
   return (
     <label className="field field--inline">
       <span>{label}</span>
-      <select
-        className="input"
+      <ReferenceSelect<Named>
+        endpoint={endpoint}
+        valueKey="id"
+        labelOf={labelOf}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        <option value="">Tümü</option>
-        {(query.data?.items ?? []).map((item) => (
-          <option key={item.id} value={String(item.id)}>
-            {labelOf(item)}
-          </option>
-        ))}
-      </select>
+        emptyLabel="Tümü"
+        onChange={onChange}
+      />
     </label>
   );
 }

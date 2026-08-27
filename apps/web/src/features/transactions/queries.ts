@@ -4,7 +4,6 @@ import type {
   ReceiptListRow,
 } from '@hakmar/contracts';
 import { useApiQuery } from '../../lib/query';
-import { useReferenceList } from '../../lib/reference-query';
 
 /** Row shapes come from @hakmar/contracts. */
 /** Something with a display name, as the filter dropdowns need it. */
@@ -39,9 +38,4 @@ export function useReceipt(id: number) {
     ['transactions', 'receipt', id],
     `/transactions/receipts/${id}`,
   );
-}
-
-/** The reference lists behind the filter dropdowns. */
-export function useNamedReferenceList(endpoint: string) {
-  return useReferenceList<Named>(endpoint);
 }

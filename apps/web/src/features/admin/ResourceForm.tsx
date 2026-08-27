@@ -1,10 +1,15 @@
 import { useId } from 'react';
-import { useReferenceList } from '../../lib/reference-query';
+import { ReferenceSelect } from '../../components/ReferenceSelect';
 import type { FieldDef } from './resource-types';
 
 type Values = Record<string, unknown>;
 
-/** A dropdown whose options come from another resource's list endpoint. */
+/**
+ * A foreign key, rendered as a dropdown over the related resource.
+ *
+ * The value goes back as a number for the numeric keys and as a string for a
+ * brand code, which is the one entity keyed by something else.
+ */
 function ReferenceField({
   field,
   value,
@@ -17,40 +22,27 @@ function ReferenceField({
   id: string;
 }) {
   const ref = field.reference!;
-  const query = useReferenceList(ref.endpoint);
-
-  const items = query.data?.items ?? [];
 
   return (
-    <select
+    <ReferenceSelect<Record<string, unknown>>
       id={id}
-      className="input"
+      endpoint={ref.endpoint}
+      valueKey={ref.valueKey}
+      labelOf={(item) => String(item[ref.labelKey])}
       value={value === undefined || value === null ? '' : String(value)}
       required={field.required}
-      disabled={query.isPending}
-      onChange={(e) => {
-        const raw = e.target.value;
+      emptyLabel="Seçiniz…"
+      onChange={(raw) => {
         if (raw === '') {
           onChange(undefined);
           return;
         }
-        // Numeric foreign keys have to go back as numbers; a brand code is a
-        // string and must not be coerced.
         const asNumber = Number(raw);
         onChange(
           ref.valueKey === 'id' && Number.isFinite(asNumber) ? asNumber : raw,
         );
       }}
-    >
-      <option value="">
-        {query.isPending ? 'Yükleniyor…' : 'Seçiniz…'}
-      </option>
-      {items.map((item) => (
-        <option key={String(item[ref.valueKey])} value={String(item[ref.valueKey])}>
-          {String(item[ref.labelKey])}
-        </option>
-      ))}
-    </select>
+    />
   );
 }
 
