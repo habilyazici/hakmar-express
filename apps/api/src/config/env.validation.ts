@@ -83,6 +83,12 @@ export class EnvironmentVariables {
 
   @IsOptional()
   @IsInt()
+  @Min(1)
+  FORECAST_RATE_LIMIT?: number;
+
+  /** The window shared by every per-IP limit above, not only login's. */
+  @IsOptional()
+  @IsInt()
   @Min(1000)
   LOGIN_RATE_TTL_MS?: number;
 

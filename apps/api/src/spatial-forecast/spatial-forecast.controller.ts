@@ -7,6 +7,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { ForecastRunResult } from '@hakmar/contracts';
 import {
   type AuthenticatedUser,
@@ -16,6 +17,7 @@ import {
   Roles,
 } from '../common';
 import { ForecastRequestDto } from './dto/forecast-request.dto';
+import { FORECAST_RUN_THROTTLE } from './forecast-throttle';
 import { SpatialForecastService } from './spatial-forecast.service';
 
 @Controller('spatial-forecast')
@@ -27,9 +29,12 @@ export class SpatialForecastController {
    * request is a simulation someone ran, and the history of what was run is
    * part of the feature. It is also why this route is not cached — the
    * parameter space is large and each run is meant to be reproducible from
-   * its stored record instead.
+   * its stored record instead. Being both expensive and uncacheable is also
+   * why it carries a throttle of its own rather than the loose global one —
+   * see forecast-throttle.ts.
    */
   @Roles(Role.SUPERADMIN, Role.ADMIN, Role.ANALYST)
+  @Throttle({ default: FORECAST_RUN_THROTTLE })
   @Post('run')
   async run(
     @Body() dto: ForecastRequestDto,

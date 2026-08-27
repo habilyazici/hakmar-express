@@ -21,7 +21,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "LOGIN_RATE_LIMIT=${LOGIN_RATE_LIMIT:-200} SESSION_RATE_LIMIT=${SESSION_RATE_LIMIT:-200} NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-e2e.json --runInBand",
+    "test:e2e": "LOGIN_RATE_LIMIT=${LOGIN_RATE_LIMIT:-200} SESSION_RATE_LIMIT=${SESSION_RATE_LIMIT:-200} FORECAST_RATE_LIMIT=${FORECAST_RATE_LIMIT:-200} NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-e2e.json --runInBand",
     "lint:fix": "eslint \"{src,apps,libs,test,prisma}/**/*.ts\" --fix"
   },
   "dependencies": {
