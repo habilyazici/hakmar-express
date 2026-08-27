@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { TABLE_ENTITIES, type TableEntity } from '@hakmar/contracts';
 import { QueryState } from '../../components/QueryState';
 import {
   currency,
@@ -14,15 +15,35 @@ import {
   useTableRanking,
 } from './queries';
 
-const ENTITIES = ['branch', 'cashier', 'product', 'customer'] as const;
-type Entity = (typeof ENTITIES)[number];
-
-const ENTITY_LABELS: Record<Entity, string> = {
+/**
+ * The list of rankable entities is the API's vocabulary, so it comes from
+ * the contract rather than being restated here — this file used to keep its
+ * own copy, which meant an entity added to the API appeared on no screen and
+ * one removed from it stayed on this one as a button that 400s. Only the
+ * Turkish labels are the web's business.
+ */
+const ENTITY_LABELS: Record<TableEntity, string> = {
   branch: 'Şube',
   cashier: 'Kasiyer',
   product: 'Ürün',
   customer: 'Müşteri',
 };
+
+/**
+ * Presentation order, which the contract has no opinion about. A Record
+ * rather than a list so the compiler still insists every entity has a place
+ * — a list could silently omit one and drop its button.
+ */
+const ENTITY_ORDER: Record<TableEntity, number> = {
+  branch: 0,
+  cashier: 1,
+  product: 2,
+  customer: 3,
+};
+
+const ENTITIES = [...TABLE_ENTITIES].sort(
+  (a, b) => ENTITY_ORDER[a] - ENTITY_ORDER[b],
+);
 
 type Cell = { key: string; label: string; format: 'text' | 'money' | 'int' | 'num' | 'date' };
 
@@ -30,7 +51,7 @@ type Cell = { key: string; label: string; format: 'text' | 'money' | 'int' | 'nu
  * Each entity genuinely returns different columns, so the column set is
  * declared per entity rather than forced into one shared shape.
  */
-const COLUMNS: Record<Entity, Cell[]> = {
+const COLUMNS: Record<TableEntity, Cell[]> = {
   branch: [
     { key: 'name', label: 'Şube', format: 'text' },
     { key: 'cityName', label: 'Şehir', format: 'text' },
@@ -81,7 +102,7 @@ function renderCell(value: unknown, format: Cell['format']) {
 }
 
 function RankingTable() {
-  const [entity, setEntity] = useState<Entity>('branch');
+  const [entity, setEntity] = useState<TableEntity>('branch');
   const query = useTableRanking(entity);
   const columns = COLUMNS[entity];
 

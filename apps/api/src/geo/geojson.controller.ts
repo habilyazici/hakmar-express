@@ -7,12 +7,24 @@ import {
   ParseEnumPipe,
   UseInterceptors,
 } from '@nestjs/common';
-import { Role, Roles } from '../common';
+import type { GeoJsonType as GeoJsonTypeContract } from '@hakmar/contracts';
+import {
+  type Assert,
+  Role,
+  Roles,
+  type SameMembers,
+  type ValuesOf,
+} from '../common';
 import { GeoJsonService } from './geojson.service';
 
 export enum GeoJsonType {
   CITY = 'city',
 }
+
+/** Checked against the contract like every other query-string vocabulary. */
+export type _GeoJsonTypeMatches = Assert<
+  SameMembers<ValuesOf<GeoJsonType>, GeoJsonTypeContract>
+>;
 
 @Controller('geo/geojson')
 @Roles(Role.SUPERADMIN, Role.ADMIN, Role.ANALYST)

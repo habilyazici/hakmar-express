@@ -12,3 +12,11 @@ export interface GeoJsonPayload<T = unknown> {
   version: number;
   data: T;
 }
+
+/**
+ * Which stored document `/geo/geojson/:type` serves. Only province
+ * boundaries exist today; the union is here so adding a second one is a
+ * change both sides see rather than a string the web has to guess.
+ */
+export const GEOJSON_TYPES = ['city'] as const;
+export type GeoJsonType = (typeof GEOJSON_TYPES)[number];

@@ -1,5 +1,7 @@
 /**
- * The /tables rows. See ./kds for why money is a string.
+ * The /tables rows and the vocabulary that selects them.
+ *
+ * See ./kds for why money is a string.
  *
  * `D` is the date representation: the API's raw queries hand back a JS Date
  * for a DATE column, and it becomes an ISO string through JSON. Rows built
@@ -44,7 +46,20 @@ export interface CustomerRankingRow<D = string> {
   lastPurchase: D | null;
 }
 
-/** Which one you get is decided by the `entity` parameter. */
+/**
+ * Which row shape you get is decided by the `entity` parameter. The API
+ * declares the same members as a TypeScript enum and asserts the two agree,
+ * so an entity added on one side alone fails the build rather than becoming
+ * a dropdown option the API answers with a 400.
+ */
+export const TABLE_ENTITIES = [
+  'cashier',
+  'branch',
+  'product',
+  'customer',
+] as const;
+export type TableEntity = (typeof TABLE_ENTITIES)[number];
+
 export type TableRankingRow<D = string> =
   | CashierRankingRow
   | BranchRankingRow
