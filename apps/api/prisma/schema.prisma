@@ -20,19 +20,20 @@ enum Role {
 }
 
 model AdminUser {
-  id            Int            @id @default(autoincrement())
-  username      String         @unique
-  passwordHash  String         @map("password_hash")
-  fullName      String         @map("full_name")
-  email         String?        @unique
-  photoPath     String?        @map("photo_path")
-  jobTitle      String?        @map("job_title")
-  role          Role           @default(ADMIN)
-  isActive      Boolean        @default(true) @map("is_active")
-  lastLogin     DateTime?      @map("last_login")
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
+  id            Int                  @id @default(autoincrement())
+  username      String               @unique
+  passwordHash  String               @map("password_hash")
+  fullName      String               @map("full_name")
+  email         String?              @unique
+  photoPath     String?              @map("photo_path")
+  jobTitle      String?              @map("job_title")
+  role          Role                 @default(ADMIN)
+  isActive      Boolean              @default(true) @map("is_active")
+  lastLogin     DateTime?            @map("last_login")
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
   refreshTokens RefreshToken[]
+  forecastRuns  SpatialForecastRun[]
 
   @@map("admin_users")
 }
@@ -71,7 +72,11 @@ model Region {
 
 model City {
   id        Int      @id @default(autoincrement())
-  plateCode Int      @map("plate_code")
+  // Unique because it is an identifier, not an attribute: the forecast map
+  // joins its 81 province boundaries to city rows on this and nothing else,
+  // so two cities sharing a code silently paint one over the other. The DTO
+  // already constrains it to 1-81; this is the half the database owes.
+  plateCode Int      @unique @map("plate_code")
   name      String
   regionId  Int      @map("region_id")
   region    Region   @relation(fields: [regionId], references: [id])
@@ -252,18 +257,25 @@ model GeoJsonData {
 // New in v2 — legacy app encoded "history" into cache keys instead of a
 // real table. This is used by the (later) Spatial Forecast milestone.
 model SpatialForecastRun {
-  id                 Int      @id @default(autoincrement())
-  mapType            String   @map("map_type")
+  id                 Int        @id @default(autoincrement())
+  mapType            String     @map("map_type")
   metric             String
-  periodMonths       Int      @map("period_months")
-  discountPct        Decimal? @map("discount_pct") @db.Decimal(5, 2)
-  discountType       String?  @map("discount_type")
-  discountTargetId   Int?     @map("discount_target_id")
-  costChangePct      Decimal? @map("cost_change_pct") @db.Decimal(5, 2)
-  purchasingPowerPct Decimal? @map("purchasing_power_pct") @db.Decimal(5, 2)
-  resultJson         Json     @map("result_json")
-  createdAt          DateTime @default(now()) @map("created_at")
-  createdById        Int      @map("created_by_id")
+  periodMonths       Int        @map("period_months")
+  discountPct        Decimal?   @map("discount_pct") @db.Decimal(5, 2)
+  discountType       String?    @map("discount_type")
+  discountTargetId   Int?       @map("discount_target_id")
+  costChangePct      Decimal?   @map("cost_change_pct") @db.Decimal(5, 2)
+  purchasingPowerPct Decimal?   @map("purchasing_power_pct") @db.Decimal(5, 2)
+  resultJson         Json       @map("result_json")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  // Was a bare integer with no constraint: it could name an account that
+  // never existed, and deleting an administrator left the rows pointing at
+  // nothing. Nullable with SetNull rather than Cascade because the run
+  // history is the feature — losing who ran something is recoverable,
+  // losing the run is not.
+  createdById        Int?       @map("created_by_id")
+  createdBy          AdminUser? @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
+  @@index([createdById])
   @@map("spatial_forecast_runs")
 }
