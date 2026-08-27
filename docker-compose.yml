@@ -6,8 +6,13 @@ services:
       POSTGRES_USER: hakmar
       POSTGRES_PASSWORD: hakmar_dev_only
       POSTGRES_DB: hakmar
+    # 5433 on the host, not 5432. Postgres's own default is a busy port on a
+    # developer machine — anything else running one grabs it first, and this
+    # project's container then silently fails to start while DATABASE_URL
+    # happily connects to whatever else is listening. Inside the compose
+    # network the port is still 5432; only the host mapping moved.
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

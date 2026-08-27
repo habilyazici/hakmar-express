@@ -19,7 +19,7 @@ plan for the full rationale.
 ## Getting started
 
 ```bash
-docker compose up -d                          # postgres + redis
+docker compose up -d                          # postgres on :5433, redis on :6379
 pnpm install
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
@@ -35,6 +35,13 @@ to change immediately. Changing the values and re-running the seed does not
 reset an existing account: the upsert leaves it alone, so change the password
 through the app or delete the row first.
 
+Postgres is published on **5433**, not its default 5432. That default is a
+busy port on a developer machine, and when something else already holds it
+this project's container just fails to start — while `DATABASE_URL`
+cheerfully connects to whatever else is listening, which fails much later and
+says something unrelated. Anything else you run keeps 5432; this keeps 5433.
+Inside the compose network the port is still 5432.
+
 `JWT_ACCESS_SECRET` must be at least 32 characters; the app validates its
 whole environment at startup and refuses to boot otherwise, naming the
 offending variable. Generate a real one with `openssl rand -hex 32`.
@@ -45,13 +52,19 @@ offending variable. Generate a real one with `openssl rand -hex 32`.
 pnpm lint
 pnpm typecheck
 pnpm test        # unit tests
-pnpm test:e2e    # e2e tests, needs postgres+redis running
+pnpm test:e2e    # e2e tests, needs postgres+redis running (see below)
 pnpm build
 ```
 
 The e2e suites run serially (`--runInBand`): they share one database, so they
 are not independent, and running them in parallel produced failures that
 looked random but were one suite reading another's half-finished state.
+
+`test:e2e` also raises the login throttle for its own run. Every request in
+the suite comes from one address, so the per-IP limit that protects a real
+deployment rejects the suite's own logins — six tests failed with 429 for
+anyone who copied `.env.example` and followed the README. Setting
+`LOGIN_RATE_LIMIT` yourself still overrides it.
 
 To fill an empty database with a fictional retail history — 17 branches, 25
 products, ~2,500 receipts over 25 months, enough for every page to show

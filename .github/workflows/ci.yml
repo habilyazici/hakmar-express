@@ -6,6 +6,8 @@ on:
   pull_request:
 
 env:
+  # 5432 here, unlike docker-compose.yml's 5433: a service container has the
+  # runner to itself, so there is nothing to collide with and no reason to move.
   DATABASE_URL: postgresql://hakmar:hakmar_ci_only@localhost:5432/hakmar?schema=public
   REDIS_URL: redis://localhost:6379
   JWT_ACCESS_SECRET: ci_only_access_secret_not_used_anywhere_else_0123456789
@@ -14,10 +16,9 @@ env:
   WEB_ORIGIN: http://localhost:5173
   SEED_ADMIN_USERNAME: superadmin
   SEED_ADMIN_PASSWORD: ChangeMe123!
-  # Every e2e request comes from the same address, so the per-IP login limit
-  # would otherwise reject the suite's own logins rather than any attack.
-  LOGIN_RATE_LIMIT: 200
-  SESSION_RATE_LIMIT: 200
+  # The login throttle the e2e suite needs raised is set by the `test:e2e`
+  # script itself, so a developer running it locally gets the same treatment
+  # CI does rather than six 429s and no explanation.
 
 jobs:
   ci:
