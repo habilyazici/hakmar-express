@@ -78,3 +78,43 @@ export interface ForecastResult {
 export interface ForecastRunResult extends ForecastResult {
   runId: number;
 }
+
+/**
+ * One row of the run history, as `GET /spatial-forecast/runs` returns it —
+ * the parameters a run was made with, without its per-area payload.
+ *
+ * `mapType`, `metric` and `discountType` are plain strings rather than the
+ * unions above, and deliberately so: these are text columns holding a
+ * historical record. A run made under a vocabulary that has since changed
+ * still has to read back as the thing it was, rather than becoming a value
+ * the current union says cannot exist.
+ *
+ * See ./dashboard for `M` and ./tables for `D`.
+ */
+export interface ForecastRunSummary<M = string, D = string> {
+  id: number;
+  mapType: string;
+  metric: string;
+  periodMonths: number;
+  discountPct: M | null;
+  discountType: string | null;
+  discountTargetId: number | null;
+  costChangePct: M | null;
+  purchasingPowerPct: M | null;
+  createdAt: D;
+  /** Null once the account that ran it has been deleted. */
+  createdById: number | null;
+}
+
+/**
+ * A stored run read back in full by `GET /spatial-forecast/runs/:id`.
+ *
+ * `R` is the recorded payload. It is a JSON column, so the API cannot
+ * describe it and leaves it `unknown`; the page that redraws it knows it is
+ * a ForecastResult and says so — the same split GeoJsonPayload makes, for
+ * the same reason.
+ */
+export interface ForecastRunRecord<R = unknown, M = string, D = string>
+  extends ForecastRunSummary<M, D> {
+  resultJson: R;
+}

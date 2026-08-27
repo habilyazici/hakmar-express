@@ -4,6 +4,8 @@ import type {
   AreaForecast,
   ForecastMethod,
   ForecastResult,
+  ForecastRunRecord,
+  ForecastRunSummary,
   MetricValues,
 } from '@hakmar/contracts';
 import { PrismaService } from '../prisma';
@@ -376,7 +378,12 @@ export class SpatialForecastService {
     return run.id;
   }
 
-  listRuns(limit: number) {
+  /**
+   * The history behind the Tahmin page's "geçmiş" list. Typed from the
+   * contract like every other response the web reads — these two were the
+   * last endpoints whose shape was whatever Prisma happened to infer.
+   */
+  listRuns(limit: number): Promise<ForecastRunSummary<Prisma.Decimal, Date>[]> {
     return this.prisma.spatialForecastRun.findMany({
       orderBy: { createdAt: 'desc' },
       take: limit,
@@ -398,7 +405,9 @@ export class SpatialForecastService {
     });
   }
 
-  getRun(id: number) {
+  getRun(
+    id: number,
+  ): Promise<ForecastRunRecord<Prisma.JsonValue, Prisma.Decimal, Date>> {
     return this.prisma.spatialForecastRun.findUniqueOrThrow({ where: { id } });
   }
 }

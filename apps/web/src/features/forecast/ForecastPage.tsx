@@ -1,20 +1,34 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
 import { isAxiosError } from 'axios';
+import { QueryState } from '../../components/QueryState';
 import {
   compactCurrency,
   currency,
   decimal,
   deltaClass,
   integer,
+  num,
   signedPercent,
 } from '../../lib/format';
-import type {
-  ForecastMetric,
-  GeoJsonPayload,
-  ForecastRunResult,
+import { useReferenceList } from '../../lib/reference-query';
+import {
+  DISCOUNT_SCOPES,
+  MAP_TYPES,
+  type DiscountScope,
+  type ForecastMetric,
+  type GeoJsonPayload,
+  type ForecastRunResult,
+  type ForecastRunSummary,
+  type MapType,
 } from '@hakmar/contracts';
-import { runForecast, useCityGeoJson } from './queries';
+import {
+  FORECAST_RUNS_KEY,
+  loadForecastRun,
+  runForecast,
+  useCityGeoJson,
+  useForecastRuns,
+} from './queries';
 import { TurkeyMap, type FeatureCollection, type MapValue } from './TurkeyMap';
 
 const METRIC_LABELS: Record<ForecastMetric, string> = {
@@ -23,6 +37,71 @@ const METRIC_LABELS: Record<ForecastMetric, string> = {
   cost: 'Maliyet',
   profit: 'Kâr',
 };
+
+const MAP_TYPE_LABELS: Record<MapType, string> = {
+  city: 'Şehir',
+  region: 'Bölge',
+};
+
+/**
+ * A discount can be applied to everything or aimed at one category or
+ * product, and the API reads that target's real share of revenue out of the
+ * database rather than assuming one. None of that was reachable: the form
+ * never sent a scope, so every simulation discounted the whole basket and
+ * the "iskonto cironun %100'üne uygulandı" line said the same thing forever.
+ */
+const SCOPE_LABELS: Record<DiscountScope, string> = {
+  all: 'Tüm ürünler',
+  category: 'Kategori',
+  product: 'Ürün',
+};
+
+const SCOPE_ENDPOINTS: Record<Exclude<DiscountScope, 'all'>, string> = {
+  category: '/catalog/categories',
+  product: '/catalog/products',
+};
+
+function DiscountTargetSelect({
+  scope,
+  value,
+  onChange,
+}: {
+  scope: Exclude<DiscountScope, 'all'>;
+  value: number | undefined;
+  onChange: (value: number | undefined) => void;
+}) {
+  const endpoint = SCOPE_ENDPOINTS[scope];
+  const query = useReferenceList<{ id: number; name: string }>(endpoint);
+  const id = useId();
+
+  return (
+    <div className="field">
+      <label htmlFor={id}>{SCOPE_LABELS[scope]}</label>
+      <select
+        id={id}
+        className="input"
+        required
+        disabled={query.isPending}
+        value={value === undefined ? '' : String(value)}
+        onChange={(e) =>
+          onChange(e.target.value === '' ? undefined : Number(e.target.value))
+        }
+      >
+        <option value="">
+          {query.isPending ? 'Yükleniyor…' : 'Seçiniz…'}
+        </option>
+        {(query.data?.items ?? []).map((item) => (
+          <option key={item.id} value={String(item.id)}>
+            {item.name}
+          </option>
+        ))}
+      </select>
+      <span className="field__hint">
+        İskonto yalnızca bu seçimin cirodaki payına uygulanır.
+      </span>
+    </div>
+  );
+}
 
 function NumberField({
   label,
@@ -86,6 +165,128 @@ function TotalsCard({
   );
 }
 
+const runTimestamp = new Intl.DateTimeFormat('tr-TR', {
+  dateStyle: 'short',
+  timeStyle: 'short',
+});
+
+/**
+ * Looks up a label for a value that came back out of a text column.
+ *
+ * `mapType`, `metric` and `discountType` are stored as text precisely so a
+ * run made under an older vocabulary still reads back, which means a stored
+ * value need not be one this build has a label for. Showing the raw value is
+ * the honest fallback; a cast to the current union would only be a claim.
+ */
+function label(labels: Record<string, string>, value: string | null): string {
+  if (value === null) return '—';
+  return labels[value] ?? value;
+}
+
+/** A stored run's parameters, written the way the form asks for them. */
+function scenarioSummary(run: ForecastRunSummary): string {
+  const parts: string[] = [];
+
+  const discount = num(run.discountPct);
+  if (discount !== 0) {
+    const scope = run.discountType;
+    const where =
+      scope !== null && scope !== 'all'
+        ? ` (${label(SCOPE_LABELS, scope)} #${String(run.discountTargetId ?? '?')})`
+        : '';
+    parts.push(`iskonto %${decimal.format(discount)}${where}`);
+  }
+
+  // Signed, so these read as the deltas they are and match how every other
+  // change in the app is written.
+  const cost = num(run.costChangePct);
+  if (cost !== 0) parts.push(`maliyet ${signedPercent(cost)}`);
+  const power = num(run.purchasingPowerPct);
+  if (power !== 0) parts.push(`alım gücü ${signedPercent(power)}`);
+
+  return parts.length > 0 ? parts.join(' · ') : 'senaryosuz';
+}
+
+/**
+ * The recorded runs.
+ *
+ * Every run has always been written to spatial_forecast_runs and both read
+ * endpoints have always existed — the page just said so without offering a
+ * way in. Reloading one restores exactly the numbers it produced, which is
+ * the point of storing the whole result rather than the parameters alone.
+ */
+function RunHistory({
+  activeRunId,
+  restoringId,
+  onRestore,
+}: {
+  activeRunId: number | null;
+  restoringId: number | null;
+  onRestore: (id: number) => void;
+}) {
+  const runs = useForecastRuns();
+
+  return (
+    <section className="section">
+      <h2 className="section-title">Geçmiş çalıştırmalar</h2>
+      <div className="panel">
+        <QueryState
+          query={runs}
+          isEmpty={(rows) => rows.length === 0}
+          emptyText="Henüz kayıtlı bir çalıştırma yok."
+        >
+          {(rows) => (
+            <div className="table-scroll">
+              <table className="table">
+                <caption>
+                  Her çalıştırma sonucuyla birlikte saklanır; buradan
+                  yüklendiğinde ürettiği sayıların aynısı görüntülenir.
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col" className="num">#</th>
+                    <th scope="col">Tarih</th>
+                    <th scope="col">Kırılım</th>
+                    <th scope="col">Metrik</th>
+                    <th scope="col" className="num">Ufuk</th>
+                    <th scope="col">Senaryo</th>
+                    <th scope="col" className="num" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((run) => (
+                    <tr key={run.id}>
+                      <th scope="row" className="num">
+                        #{run.id}
+                      </th>
+                      <td>{runTimestamp.format(new Date(run.createdAt))}</td>
+                      <td>{label(MAP_TYPE_LABELS, run.mapType)}</td>
+                      <td>{label(METRIC_LABELS, run.metric)}</td>
+                      <td className="num">{run.periodMonths} ay</td>
+                      <td className="muted">{scenarioSummary(run)}</td>
+                      <td className="num">
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          disabled={restoringId !== null}
+                          aria-pressed={activeRunId === run.id}
+                          onClick={() => onRestore(run.id)}
+                        >
+                          {restoringId === run.id ? 'Yükleniyor…' : 'Görüntüle'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </QueryState>
+      </div>
+    </section>
+  );
+}
+
 function toMapValues(result: ForecastRunResult): Map<number, MapValue> {
   const metric = result.params.metric;
   const isMoney = metric !== 'quantity';
@@ -104,14 +305,24 @@ function toMapValues(result: ForecastRunResult): Map<number, MapValue> {
 }
 
 export function ForecastPage() {
-  const [mapType, setMapType] = useState<'city' | 'region'>('city');
+  const queryClient = useQueryClient();
+  const [mapType, setMapType] = useState<MapType>('city');
   const [metric, setMetric] = useState<ForecastMetric>('sales');
   const [periodMonths, setPeriodMonths] = useState(6);
   const [discountPct, setDiscountPct] = useState(0);
+  const [discountScope, setDiscountScope] = useState<DiscountScope>('all');
+  const [discountTargetId, setDiscountTargetId] = useState<number>();
   const [costChangePct, setCostChangePct] = useState(0);
   const [purchasingPowerPct, setPurchasingPowerPct] = useState(0);
 
+  // One piece of state for what is on screen, fed by two sources: a run just
+  // computed, or one loaded back out of the history. Reading mutation.data
+  // directly meant the history could not put anything there.
+  const [result, setResult] = useState<ForecastRunResult | null>(null);
+
   const geojson = useCityGeoJson<GeoJsonPayload<FeatureCollection>>();
+
+  const scopeNeedsTarget = discountScope !== 'all';
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -120,17 +331,28 @@ export function ForecastPage() {
         metric,
         periodMonths,
         discountPct,
+        discountScope,
+        // Only sent when the scope asks for one; the API requires it then and
+        // rejects the request without it.
+        ...(scopeNeedsTarget ? { discountTargetId } : {}),
         costChangePct,
         purchasingPowerPct,
       }),
+    onSuccess: (data) => {
+      setResult(data);
+      void queryClient.invalidateQueries({ queryKey: FORECAST_RUNS_KEY });
+    },
+  });
+
+  const restore = useMutation({
+    mutationFn: (id: number) => loadForecastRun(id),
+    onSuccess: (data) => setResult(data),
   });
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     mutation.mutate();
   }
-
-  const result = mutation.data;
 
   return (
     <main className="page">
@@ -144,22 +366,17 @@ export function ForecastPage() {
             <div className="field">
               <span className="field__label">Kırılım</span>
               <div className="btn-group" role="group" aria-label="Kırılım">
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  aria-pressed={mapType === 'city'}
-                  onClick={() => setMapType('city')}
-                >
-                  Şehir
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  aria-pressed={mapType === 'region'}
-                  onClick={() => setMapType('region')}
-                >
-                  Bölge
-                </button>
+                {MAP_TYPES.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    className="btn btn-sm"
+                    aria-pressed={mapType === t}
+                    onClick={() => setMapType(t)}
+                  >
+                    {MAP_TYPE_LABELS[t]}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -196,6 +413,35 @@ export function ForecastPage() {
               max={90}
               onChange={setDiscountPct}
             />
+
+            <div className="field">
+              <span className="field__label">İskonto kapsamı</span>
+              <div className="btn-group" role="group" aria-label="İskonto kapsamı">
+                {DISCOUNT_SCOPES.map((scope) => (
+                  <button
+                    key={scope}
+                    type="button"
+                    className="btn btn-sm"
+                    aria-pressed={discountScope === scope}
+                    onClick={() => {
+                      setDiscountScope(scope);
+                      // The target belongs to the scope that asked for it.
+                      setDiscountTargetId(undefined);
+                    }}
+                  >
+                    {SCOPE_LABELS[scope]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {scopeNeedsTarget && (
+              <DiscountTargetSelect
+                scope={discountScope}
+                value={discountTargetId}
+                onChange={setDiscountTargetId}
+              />
+            )}
             <NumberField
               label="Maliyet değişimi (%)"
               hint="Sadece maliyeti etkiler"
@@ -216,7 +462,8 @@ export function ForecastPage() {
 
           <div className="row-between" style={{ marginTop: 16 }}>
             <p className="muted">
-              Her çalıştırma kaydedilir ve geçmişten tekrar okunabilir.
+              Her çalıştırma kaydedilir; aşağıdaki geçmiş listesinden tekrar
+              görüntülenebilir.
             </p>
             <button
               className="btn btn-primary"
@@ -238,6 +485,7 @@ export function ForecastPage() {
         </form>
       </section>
 
+
       {result && (
         <>
           <section className="section">
@@ -247,7 +495,7 @@ export function ForecastPage() {
               </h2>
               <span className="muted">
                 Çalıştırma #{result.runId} ·{' '}
-                {new Date(result.generatedAt).toLocaleString('tr-TR')}
+                {runTimestamp.format(new Date(result.generatedAt))}
               </span>
             </div>
             <div className="card-grid">
@@ -374,6 +622,23 @@ export function ForecastPage() {
           </section>
         </>
       )}
+
+      {restore.isError && (
+        <div className="alert" role="alert">
+          <span>Kayıtlı çalıştırma yüklenemedi.</span>
+          <button className="btn" onClick={() => restore.reset()}>
+            Kapat
+          </button>
+        </div>
+      )}
+
+      {/* Last, so a run's own numbers stay next to the form that asked for
+          them rather than being pushed down the page by the archive. */}
+      <RunHistory
+        activeRunId={result?.runId ?? null}
+        restoringId={restore.isPending ? (restore.variables ?? null) : null}
+        onRestore={(id) => restore.mutate(id)}
+      />
     </main>
   );
 }
