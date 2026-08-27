@@ -110,6 +110,26 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), cspPlugin(apiOrigin)],
+    // @hakmar/contracts is a linked workspace package that compiles to
+    // CommonJS, and Vite does not pre-bundle linked packages by default — it
+    // served dist/index.js to the browser as-is. Its barrel re-exports every
+    // module through tslib's `__exportStar`, which copies properties in a
+    // runtime loop, so Vite's CJS interop could not see a single named export
+    // through it and every *value* imported from the contract threw
+    // "does not provide an export named ...". That crashed Grafikler,
+    // Tablolar and Tahmin — the three pages that read a vocabulary list at
+    // runtime to build their dropdowns — on `pnpm dev`, while `pnpm build`
+    // stayed fine because Rollup resolves the same re-exports at build time.
+    // Nothing else caught it: the types are correct, so typecheck passes, and
+    // no test renders those pages.
+    //
+    // Pre-bundling it converts the CJS to ESM once, up front, and the named
+    // exports resolve. The alternative — emitting a second ESM build of the
+    // contract — buys a dual-package hazard for a problem only the dev server
+    // has.
+    optimizeDeps: {
+      include: ['@hakmar/contracts'],
+    },
     server: {
       // 5174, not Vite's default 5173. Anyone with a second Vite project has
       // 5173, and the failure is quiet: Vite picks the next free port on its
