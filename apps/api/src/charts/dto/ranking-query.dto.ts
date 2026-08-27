@@ -1,5 +1,7 @@
+import type { RankingMetric as RankingMetricContract } from '@hakmar/contracts';
 import { Type } from 'class-transformer';
 import { IsEnum, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+import type { Assert, SameMembers, ValuesOf } from '../../common';
 import { SalesDimension, SalesMetric } from '../../sales';
 
 /**
@@ -16,6 +18,21 @@ export const RANKING_METRICS = [
 ] as const;
 
 export type RankingMetric = (typeof RANKING_METRICS)[number];
+
+/**
+ * The one query-string vocabulary that was in the contract, offered by the
+ * web as a dropdown, and joined to this list by nothing at all.
+ *
+ * Being a subset is exactly what made it worth checking: SalesMetric is
+ * asserted against the contract in sales.model.ts, but which three of the
+ * five ranking exposes was restated here and in @hakmar/contracts
+ * independently. Narrow this list without narrowing that one and the web
+ * keeps offering an option the API answers with a 400 — the failure every
+ * other one of these assertions exists to prevent.
+ */
+export type _RankingMetricMatches = Assert<
+  SameMembers<ValuesOf<RankingMetric>, RankingMetricContract>
+>;
 
 export class RankingQueryDto {
   @IsEnum(SalesDimension)
