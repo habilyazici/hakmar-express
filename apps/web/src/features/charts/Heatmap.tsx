@@ -1,18 +1,45 @@
-import { compactCurrency, WEEKDAYS_TR, monthName, num } from '../../lib/format';
-import type { HeatmapRow, HeatmapType } from '@hakmar/contracts';
+import {
+  compactCurrency,
+  integer,
+  WEEKDAYS_TR,
+  monthName,
+  num,
+} from '../../lib/format';
+import { isMoneyMetric } from './labels';
+import type { HeatmapRow, HeatmapType, SalesMetric } from '@hakmar/contracts';
 
 /**
  * Rendered as a real table rather than a chart library grid: the axes are
  * categorical and finite, the cells carry one number each, and a table gets
  * headers and screen-reader semantics for free.
+ *
+ * The cell formatter follows the metric. Every cell used to be printed as
+ * lira, so picking "Miktar" or "Fiş sayısı" reported a count of 412 units as
+ * "₺412" — the same class of mistake the trend chart's two Y axes exist to
+ * avoid, in the one panel that had no axis to hang the unit off.
+ * region-category is exempt: it always reports an average unit cost, which
+ * is money whatever the metric picker last said.
  */
+function cellFormatter(
+  type: HeatmapType,
+  metric: SalesMetric,
+): (value: number) => string {
+  if (type === 'region-category' || isMoneyMetric(metric)) {
+    return (value) => compactCurrency.format(value);
+  }
+  return (value) => integer.format(value);
+}
+
 export function Heatmap({
   rows,
   type,
+  metric,
 }: {
   rows: HeatmapRow[];
   type: HeatmapType;
+  metric: SalesMetric;
 }) {
+  const format = cellFormatter(type, metric);
   const xs = [...new Set(rows.map((r) => String(r.x)))].sort(sorter(type));
   const ys = [...new Set(rows.map((r) => String(r.y)))].sort(sorter(type));
 
@@ -54,13 +81,9 @@ export function Heatmap({
                           : undefined,
                       color: intensity > 0.55 ? 'var(--accent-fg)' : undefined,
                     }}
-                    title={
-                      value === undefined
-                        ? 'Veri yok'
-                        : compactCurrency.format(value)
-                    }
+                    title={value === undefined ? 'Veri yok' : format(value)}
                   >
-                    {value === undefined ? '' : compactCurrency.format(value)}
+                    {value === undefined ? '' : format(value)}
                   </td>
                 );
               })}

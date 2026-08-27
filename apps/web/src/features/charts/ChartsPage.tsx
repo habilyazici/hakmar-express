@@ -361,7 +361,7 @@ function HeatmapPanel() {
         </Toolbar>
 
         <QueryState query={query} isEmpty={(rows) => rows.length === 0}>
-          {(rows) => <Heatmap rows={rows} type={type} />}
+          {(rows) => <Heatmap rows={rows} type={type} metric={metric} />}
         </QueryState>
       </div>
     </section>
