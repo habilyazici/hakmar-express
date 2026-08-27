@@ -5,6 +5,18 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
+    <!--
+      A Content-Security-Policy meta tag is substituted for the marker below
+      when the app is built. It is not written out here because part of it —
+      the hash of every inline script on this page, including the theme one
+      just underneath — can only be known once the build has finished
+      assembling the page. The policy itself, and why the dev server does not
+      get one, are in vite.config.ts.
+
+      It sits here, after the charset declaration and before the first script,
+      on purpose: a meta-delivered policy only governs what follows it.
+    -->
+    <!-- content-security-policy -->
     <script>
       // Runs before the stylesheet so a pinned theme is right on the first
       // paint; without it a viewer who chose light on a dark OS gets a dark
