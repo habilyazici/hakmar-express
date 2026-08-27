@@ -61,4 +61,19 @@ describe('TablesService', () => {
     expect(query.sql).toContain('FROM product_costs');
     expect(query.sql).toContain('JOIN regions');
   });
+
+  /**
+   * The sales figures must reach the outer GROUP BY already summed per cost
+   * row. Joining receipt_items straight in duplicates each product_costs row
+   * once per sale made against it, which silently turns the average unit
+   * cost into one weighted by sales volume. Asserting on the shape catches
+   * that reappearing without needing a database.
+   */
+  it('getRegionCost sums the line items per cost row before joining', async () => {
+    await service.getRegionCost(50);
+
+    const query = lastQuery(prisma.$queryRaw);
+    expect(query.sql).toContain('GROUP BY ri.cost_id');
+    expect(query.sql).not.toMatch(/LEFT JOIN receipt_items ri ON ri\.cost_id/);
+  });
 });

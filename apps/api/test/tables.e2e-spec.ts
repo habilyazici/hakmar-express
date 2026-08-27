@@ -245,4 +245,91 @@ describe('Tables (e2e)', () => {
     expect(ours).toBeDefined();
     expect(Number(ours!.avgCost)).toBe(55);
   });
+
+  /**
+   * Three cost rows for one region x product, sold against unevenly.
+   *
+   * The 2024 row is cheap and carries three line items; the 2023 row is dear
+   * and carries one; the 2026 row from the fixture above carries none. A
+   * query that joins receipt_items directly sees each cost row once per sale
+   * made against it, so the 10 is counted three times and the average comes
+   * out (55 + 10 + 10 + 10 + 70) / 5 = 31 — an average weighted by sales
+   * volume, under a column labelled "average unit cost". Averaging the cost
+   * rows themselves gives (55 + 10 + 70) / 3 = 45.
+   *
+   * The fixture above could not catch this: it has one cost row per
+   * region x product, and its single line item carries no cost_id at all, so
+   * the join it was meant to exercise never matched anything.
+   */
+  it('averages the cost rows themselves, not once per sale made against them', async () => {
+    const cheap = await prisma.productCost.create({
+      data: { productId, regionId, year: 2024, unitCost: 10 },
+    });
+    const dear = await prisma.productCost.create({
+      data: { productId, regionId, year: 2023, unitCost: 70 },
+    });
+    const items = await Promise.all([
+      ...[1, 2, 3].map(() =>
+        prisma.receiptItem.create({
+          data: {
+            receiptId,
+            productId,
+            costId: cheap.id,
+            quantity: 1,
+            totalPrice: 100,
+            totalCost: 10,
+            totalMargin: 90,
+          },
+        }),
+      ),
+      prisma.receiptItem.create({
+        data: {
+          receiptId,
+          productId,
+          costId: dear.id,
+          quantity: 1,
+          totalPrice: 150,
+          totalCost: 70,
+          totalMargin: 80,
+        },
+      }),
+    ]);
+
+    try {
+      // Seeded through Prisma, so nothing invalidated the answer the test
+      // above already cached for this same URL.
+      await clearCache(app);
+
+      const res = await agent(app)
+        .get('/api/v1/tables/region-cost')
+        .query({ limit: 1000 })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      const rows = res.body.data as {
+        regionName: string;
+        productName: string;
+        avgCost: string;
+        totalSales: string;
+        totalProfit: string;
+      }[];
+      const ours = rows.find(
+        (r) => r.regionName === 'T2 Region' && r.productName === 'T2 Product',
+      );
+      expect(ours).toBeDefined();
+      expect(Number(ours!.avgCost)).toBe(45);
+      // Sales and profit stay plain sums over the line items, so the
+      // pre-aggregation must not have changed them: 100 * 3 + 150.
+      expect(Number(ours!.totalSales)).toBe(450);
+      expect(Number(ours!.totalProfit)).toBe(350);
+    } finally {
+      await prisma.receiptItem.deleteMany({
+        where: { id: { in: items.map((i) => i.id) } },
+      });
+      await prisma.productCost.deleteMany({
+        where: { id: { in: [cheap.id, dear.id] } },
+      });
+      await clearCache(app);
+    }
+  });
 });

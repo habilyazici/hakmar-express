@@ -173,6 +173,15 @@ export class TablesService {
    * tied to the exact product_costs row via receipt_items.cost_id, not just
    * matched by product+region, since a product can have several cost rows
    * across years for the same region.
+   *
+   * receipt_items is summed per cost row *before* it is joined, so each
+   * product_costs row reaches the outer GROUP BY exactly once. Joining the
+   * line items directly duplicated a cost row once per sale made against it,
+   * which turned "average unit cost" into an average weighted by sales
+   * volume: a product costing 10 in a year with 500 sales and 20 in a year
+   * with 5 reported ~10.1 rather than 15. The figure is labelled an average
+   * of the region's cost rows, so that is what it has to be. The
+   * price-cost-history query above already pre-aggregates for this reason.
    */
   getRegionCost(limit: number): Promise<RegionCostRow[]> {
     return this.prisma.$queryRaw<RegionCostRow[]>(Prisma.sql`
@@ -181,12 +190,19 @@ export class TablesService {
              p.id AS "productId",
              p.product_name AS "productName",
              COALESCE(AVG(pc.unit_cost), 0) AS "avgCost",
-             ${SALES_METRIC_EXPR[SalesMetric.SALES]} AS "totalSales",
-             ${SALES_METRIC_EXPR[SalesMetric.PROFIT]} AS "totalProfit"
+             COALESCE(SUM(sold.sales), 0) AS "totalSales",
+             COALESCE(SUM(sold.profit), 0) AS "totalProfit"
       FROM product_costs pc
       JOIN regions reg ON reg.id = pc.region_id
       JOIN products p ON p.id = pc.product_id
-      LEFT JOIN receipt_items ri ON ri.cost_id = pc.id
+      LEFT JOIN (
+        SELECT ri.cost_id,
+               ${SALES_METRIC_EXPR[SalesMetric.SALES]} AS sales,
+               ${SALES_METRIC_EXPR[SalesMetric.PROFIT]} AS profit
+        FROM receipt_items ri
+        WHERE ri.cost_id IS NOT NULL
+        GROUP BY ri.cost_id
+      ) sold ON sold.cost_id = pc.id
       GROUP BY reg.id, reg.name, p.id, p.product_name
       ORDER BY reg.name, p.product_name
       LIMIT ${limit}
