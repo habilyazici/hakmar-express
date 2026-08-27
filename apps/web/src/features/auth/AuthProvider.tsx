@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { AuthUser } from '@hakmar/contracts';
 import {
@@ -44,19 +45,40 @@ function refreshOnce(): Promise<string | null> {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<AuthUser | null>(null);
   // Always starts true now: with the token in an httpOnly cookie there is no
   // way to know up front whether a session exists, so every cold load has to
   // ask the server. A 401 simply means "not signed in".
   const [isLoading, setIsLoading] = useState(true);
 
+  /**
+   * Ending a session throws the query cache away.
+   *
+   * React Query's cache is a module-level singleton that outlives any one
+   * session, and none of it is keyed by user — so signing out and signing
+   * back in as someone else served the previous account's cached answers
+   * until each key went stale. That is a disclosure on a shared machine, not
+   * a rendering quirk: the accounts differ in role precisely so that they see
+   * different things.
+   */
+  const endSession = useCallback(() => {
+    setAccessToken(null);
+    setUser(null);
+    queryClient.clear();
+  }, [queryClient]);
+
   useEffect(() => {
     registerUnauthorizedHandler(async () => {
       const token = await refreshOnce();
-      setUser(token ? decodeAccessToken(token) : null);
+      if (!token) {
+        endSession();
+        return null;
+      }
+      setUser(decodeAccessToken(token));
       return token;
     });
-  }, []);
+  }, [endSession]);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,18 +94,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = useCallback(async (username: string, password: string) => {
-    const { accessToken, user: authUser } = await postLogin(username, password);
-    setAccessToken(accessToken);
-    setUser(authUser);
-  }, []);
+  const login = useCallback(
+    async (username: string, password: string) => {
+      const { accessToken, user: authUser } = await postLogin(
+        username,
+        password,
+      );
+      // Cleared on the way in as well as the way out: a tab that was left
+      // open at the login screen can still be holding the previous session's
+      // entries, and nothing else would evict them.
+      queryClient.clear();
+      setAccessToken(accessToken);
+      setUser(authUser);
+    },
+    [queryClient],
+  );
 
   const logout = useCallback(async () => {
-    // The server clears the cookie; the client only drops in-memory state.
+    // The server clears the cookie; the client drops its in-memory state and
+    // everything it had cached under the old session.
     await postLogout();
-    setAccessToken(null);
-    setUser(null);
-  }, []);
+    endSession();
+  }, [endSession]);
 
   return (
     <AuthContext.Provider value={{ user, isLoading, login, logout }}>
