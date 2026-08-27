@@ -13,7 +13,7 @@ env:
   JWT_ACCESS_SECRET: ci_only_access_secret_not_used_anywhere_else_0123456789
   JWT_ACCESS_EXPIRES_IN: 20m
   JWT_REFRESH_EXPIRES_IN: 7d
-  WEB_ORIGIN: http://localhost:5173
+  WEB_ORIGIN: http://localhost:5174
   SEED_ADMIN_USERNAME: superadmin
   SEED_ADMIN_PASSWORD: ChangeMe123!
   # The login throttle the e2e suite needs raised is set by the `test:e2e`
@@ -49,11 +49,14 @@ jobs:
           --health-retries 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      # v6 is the first release that knows about pnpm 11, which is what
+      # package.json pins. It also has to run before setup-node, whose
+      # pnpm cache needs a pnpm on PATH to ask for the store path.
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: pnpm
