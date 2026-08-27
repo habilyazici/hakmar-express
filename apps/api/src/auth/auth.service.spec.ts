@@ -53,7 +53,9 @@ describe('AuthService', () => {
       refreshToken: {
         create: jest.fn().mockResolvedValue({ id: 99 }),
         update: jest.fn(),
-        updateMany: jest.fn(),
+        // refresh() claims the presented token with a conditional updateMany;
+        // count is how many rows it actually moved, and 1 means it won.
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         deleteMany: jest.fn(),
         findUnique: jest.fn(),
       },
@@ -242,10 +244,36 @@ describe('AuthService', () => {
       const pair = await service.refresh('valid');
 
       expect(pair.accessToken).toBe('jwt');
+      // The revocation is the conditional claim, not part of the link.
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { id: 42, revokedAt: null },
+        data: { revokedAt: anyDate },
+      });
       expect(prisma.refreshToken.update).toHaveBeenCalledWith({
         where: { id: 42 },
-        data: { revokedAt: anyDate, replacedById: 99 },
+        data: { replacedById: 99 },
       });
+    });
+
+    it('treats losing the claim race as a replay and revokes the family', async () => {
+      // Both callers read revokedAt: null; the other one got there first, so
+      // this update matches nothing. Without the claim both would have been
+      // handed a live session off one presented token.
+      prisma.refreshToken.findUnique.mockResolvedValue({
+        id: 42,
+        userId: 7,
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 86_400_000),
+        user: { id: 7, username: 'admin', role: Role.ADMIN, isActive: true },
+      });
+      prisma.refreshToken.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.refresh('raced')).rejects.toThrow(/reuse detected/i);
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: 7, revokedAt: null },
+        data: { revokedAt: anyDate },
+      });
+      expect(prisma.refreshToken.create).not.toHaveBeenCalled();
     });
   });
 });

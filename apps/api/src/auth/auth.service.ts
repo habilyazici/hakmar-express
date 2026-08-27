@@ -106,6 +106,27 @@ export class AuthService {
       throw new UnauthorizedException('User is deactivated.');
     }
 
+    // Claim the presented token before anything is issued against it.
+    //
+    // The read above and the revocation used to be separate statements with
+    // the whole of issueTokenPair between them, so two refreshes arriving
+    // together both saw `revokedAt: null` and both minted a session: one
+    // presented token, two live families, and the reuse detection above
+    // quietly not holding for the pair that caused it. A conditional update is
+    // the claim — exactly one caller can move `revokedAt` away from null, and
+    // a caller that loses that race is by definition presenting a token
+    // somebody else has already rotated, which is the replay case.
+    const claimed = await this.prisma.refreshToken.updateMany({
+      where: { id: existing.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    if (claimed.count === 0) {
+      await this.revokeAllSessions(existing.userId);
+      throw new UnauthorizedException(
+        'Refresh token reuse detected; all sessions revoked.',
+      );
+    }
+
     return this.issueTokenPair(
       existing.user.id,
       existing.user.username,
@@ -194,10 +215,13 @@ export class AuthService {
       data: { tokenHash, userId, expiresAt },
     });
 
-    if (previousTokenId) {
+    if (previousTokenId !== undefined) {
+      // `revokedAt` is already set — refresh() claimed this row before calling
+      // in, which is what makes the rotation atomic. All that is left is to
+      // record which token replaced it, so the family stays traceable.
       await this.prisma.refreshToken.update({
         where: { id: previousTokenId },
-        data: { revokedAt: new Date(), replacedById: created.id },
+        data: { replacedById: created.id },
       });
     }
 
