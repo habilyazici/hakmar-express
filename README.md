@@ -296,6 +296,79 @@ outlives any one session and none of it is keyed by user, so without that the
 next person to sign in on the same machine is served the previous account's
 cached answers.
 
+## Deployment
+
+`docker-compose.yml` starts only Postgres and Redis, so that `pnpm dev` has
+something to talk to. `docker-compose.prod.yml` builds and runs the
+application itself: nginx in front, the API behind it, both backing services
+behind those.
+
+```bash
+cp .env.prod.example .env.prod        # then fill it in
+docker compose -f docker-compose.prod.yml --env-file .env.prod build
+docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm migrate
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+```
+
+Then seed the first superadmin and the province boundaries, once:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod \
+  run --rm --entrypoint ./node_modules/.bin/tsx migrate prisma/seed.ts
+```
+
+The seed script directly, rather than `prisma db seed`: that command spawns
+`tsx` off PATH, and inside the container it is only in `node_modules/.bin`.
+`pnpm exec` is out for a related reason — pnpm 11 checks the installed tree
+against the lockfile before running anything, and with no TTY that check
+tries an install of its own and fails asking for a confirmation it cannot
+get.
+
+Only nginx publishes a port. Postgres, Redis and the API are reachable on the
+compose network and nowhere else — which is why the API can go on listening on
+its own default 3000 with nothing to collide with.
+
+### Why the proxy is in front
+
+nginx serves the built app **and** proxies `/api` to the API, so the browser
+talks to one origin. That is not a convenience:
+
+- No cross-origin request means no CORS, and no `WEB_ORIGIN` to keep in step
+  with wherever the app actually ended up being served.
+- The refresh cookie's `SameSite=Strict` does its job without the app and the
+  API having to agree on two hostnames.
+- It is the only place the security headers a `<meta>` tag cannot carry can
+  be set. Browsers ignore `frame-ancestors` in a policy delivered as markup,
+  so the page's own CSP — hashed per inline script, built in
+  `apps/web/vite.config.ts` — cannot forbid framing. nginx adds that
+  directive, along with `X-Content-Type-Options`, `Referrer-Policy` and a
+  `Permissions-Policy`. Two policies never weaken each other: each is
+  enforced on its own.
+
+`VITE_API_URL` is therefore `/api/v1` in the image, baked in at build time —
+Vite substitutes it into the bundle, so it is a property of the image rather
+than something the container can be told later.
+
+### What a deployment still owes
+
+- **TLS.** Terminate it in front of the published port. `COOKIE_SECURE`
+  defaults to `true` in `.env.prod.example` and should stay that way: the
+  refresh cookie is a seven-day credential and has no business travelling
+  over plain HTTP. `Strict-Transport-Security` is written out but commented
+  in `apps/web/nginx.conf` — uncomment it only where that server is the one
+  terminating TLS.
+- **`TRUST_PROXY`.** Already set to `1` in the compose file, which is correct
+  for exactly this layout: one proxy in front. Change it if you put more
+  there, or the per-IP rate limits collapse into a single shared bucket for
+  every user behind it.
+- **Migrations.** `run --rm migrate` before bringing the API up, and again
+  after any deploy carrying a new one. It is a separate image on purpose: the
+  Prisma CLI that applies them is a dev dependency the runtime image does not
+  have, and a schema change should be an observable step rather than a side
+  effect of a restart — particularly with more than one API replica starting
+  at once.
+- **Backups.** `postgres_data` is a named volume and nothing here backs it up.
+
 ## Status
 
 Shipped: the cross-cutting NestJS architecture (guards/interceptors/filters,

@@ -1,0 +1,22 @@
+# Anything the image should build for itself rather than inherit from a
+# developer's machine. node_modules in particular is platform-specific: bcrypt
+# and Prisma's engines are native, and a macOS build copied into a Linux image
+# fails at require() time with an error that names neither.
+node_modules
+**/node_modules
+dist
+**/dist
+.turbo
+**/.turbo
+coverage
+**/coverage
+apps/api/generated
+.git
+.github
+.husky
+**/.env
+**/.env.*
+!**/.env.example
+*.log
+.DS_Store
+**/.DS_Store

@@ -44,11 +44,25 @@ function contentSecurityPolicy(apiOrigin: string, scriptHashes: string[]) {
     "font-src 'self'",
     "style-src 'self' 'unsafe-inline'",
     `script-src 'self' ${scriptHashes.join(' ')}`,
-    // 'self' covers the ordinary deployment, where the API is reverse-proxied
-    // under the same origin. The explicit origin is what makes local
-    // development work, where it is a different port on localhost.
-    `connect-src 'self' ${apiOrigin}`,
+    // 'self' alone covers the deployed layout, where nginx serves this app
+    // and proxies /api to the API under one origin. The extra origin is what
+    // makes a split-origin setup work — local development, where the API is a
+    // different port on localhost.
+    `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ''}`,
   ].join('; ')
+}
+
+/**
+ * The origin `connect-src` has to name on top of 'self', or '' when it does
+ * not need to name one.
+ *
+ * A relative VITE_API_URL — `/api/v1`, which is what the deployed layout uses
+ * — has no origin of its own; it *is* this one, so 'self' already covers it.
+ * Passing it to `new URL()` would throw and take the build down with it.
+ */
+function extraConnectOrigin(apiUrl: string): string {
+  if (apiUrl.startsWith('/')) return ''
+  return new URL(apiUrl).origin
 }
 
 /** The comment in index.html that the built policy replaces. */
@@ -104,9 +118,9 @@ export default defineConfig(({ mode }) => {
   // reason: without it a missing VITE_API_URL would put a policy on the page
   // that forbids talking to the API the app is about to talk to.
   const env = loadEnv(mode, process.cwd(), 'VITE_')
-  const apiOrigin = new URL(
+  const apiOrigin = extraConnectOrigin(
     env.VITE_API_URL || 'http://localhost:3001/api/v1',
-  ).origin
+  )
 
   return {
     plugins: [react(), cspPlugin(apiOrigin)],

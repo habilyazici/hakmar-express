@@ -1,0 +1,116 @@
+# The deployable stack: nginx in front, the API behind it, Postgres and Redis
+# behind both.
+#
+# Distinct from docker-compose.yml, which starts only the two backing services
+# so that `pnpm dev` has something to talk to. This one builds and runs the
+# application itself.
+#
+#   cp .env.prod.example .env.prod        # then edit it — it will not start otherwise
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod build
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm migrate
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+#
+# Only the proxy publishes a port. Postgres, Redis and the API are reachable
+# on the compose network and nowhere else, which is the whole reason the API
+# can keep listening on its own default port without anything colliding.
+
+# Its own project name, so this stack never shares containers, networks or
+# volumes with the development one in docker-compose.yml. Without it both
+# files default to the directory name, and `up` here quietly attaches to the
+# Postgres that `docker compose up` started for `pnpm dev` — same volume,
+# different credentials, and an authentication failure that names neither.
+name: hakmar-express-prod
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env.prod}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env.prod}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot. `run --rm migrate` before bringing the API up, and again after
+  # any deploy that carries a new migration.
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: migrate
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    profiles: ["tools"]
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runtime
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in .env.prod — at least 32 chars}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-20m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      # Same origin as the app, because nginx serves both. CORS never comes
+      # into it; this stays set so a misrouted cross-origin call still fails.
+      WEB_ORIGIN: ${PUBLIC_ORIGIN:?set PUBLIC_ORIGIN in .env.prod}
+      # Exactly one proxy sits in front, so X-Forwarded-For's last hop is
+      # trustworthy and the per-IP rate limits see real client addresses
+      # instead of nginx's one.
+      TRUST_PROXY: "1"
+      # Serve this behind TLS. With it unset the refresh cookie loses its
+      # Secure attribute and will travel over plain HTTP.
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-superadmin}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?set SEED_ADMIN_PASSWORD in .env.prod}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: runtime
+    restart: unless-stopped
+    ports:
+      - "${PUBLIC_PORT:-8080}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
