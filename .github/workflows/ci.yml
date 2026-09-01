@@ -14,6 +14,9 @@ env:
   JWT_ACCESS_EXPIRES_IN: 20m
   JWT_REFRESH_EXPIRES_IN: 7d
   WEB_ORIGIN: http://localhost:5174
+  # The smoke suite serves the API here, and the web bundle bakes this in at
+  # build time — so it has to be set for the build, not just for the run.
+  VITE_API_URL: http://localhost:3001/api/v1
   SEED_ADMIN_USERNAME: superadmin
   SEED_ADMIN_PASSWORD: ChangeMe123!
   # The login throttle the e2e suite needs raised is set by the `test:e2e`
@@ -97,3 +100,30 @@ jobs:
 
       - name: Build
         run: pnpm run build
+
+      # The only step that runs the application. Everything above checks the
+      # app without ever loading it, which is how three pages once shipped
+      # rendering nothing but the error boundary: the types were right, the
+      # build succeeded, and no test mounted them. Playwright starts the
+      # built API and the built web app itself and drives a real browser
+      # through every page.
+      - name: Install Chromium for the smoke suite
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      - name: Smoke test
+        run: pnpm --filter web test:smoke
+        env:
+          # The web bundle bakes this in at build time, so the build above
+          # has to have been given the same value the API will listen on.
+          VITE_API_URL: http://localhost:3001/api/v1
+
+      - name: Upload smoke failure artefacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-failure
+          path: |
+            apps/web/test-results/
+            apps/web/playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore

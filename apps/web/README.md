@@ -37,7 +37,14 @@ pnpm typecheck
 pnpm test         # vitest
 pnpm build        # tsc -b && vite build
 pnpm preview      # serves the real build, Content-Security-Policy included
+pnpm test:smoke   # the built app in a real browser — see smoke/
+pnpm test:smoke:dev   # the same walk against the Vite dev server
 ```
+
+`smoke/` holds the one check in this repository that loads the application.
+It starts the API and this app itself and requires every page to render.
+`playwright.config.ts` explains what it is for and why the dev-server variant
+is not redundant.
 
 `VITE_API_URL` must point at the API; `.env.example` has the local value.
 

@@ -76,7 +76,21 @@ pnpm typecheck
 pnpm test        # unit tests
 pnpm test:e2e    # e2e tests, needs postgres+redis running (see below)
 pnpm build
+pnpm --filter web test:smoke   # the built app in a real browser; needs a build first
 ```
+
+`test:smoke` is the only check that runs the application. Everything else
+inspects it without ever loading it, which is how three pages once shipped
+rendering nothing but the error boundary — the types were right, the build
+succeeded, and no test mounted them. Playwright starts the built API and the
+built web app itself, signs in, and requires that every page renders with no
+uncaught error and no 5xx. It takes about ten seconds, and CI runs it after
+the build.
+
+Add `:dev` (`pnpm --filter web test:smoke:dev`) to point it at the Vite dev
+server instead of the build. That is not redundant: the failure it was
+written for only ever appeared in dev, because the production bundler
+resolves what the dev server could not.
 
 The e2e suites run serially (`--runInBand`): they share one database, so they
 are not independent, and running them in parallel produced failures that
