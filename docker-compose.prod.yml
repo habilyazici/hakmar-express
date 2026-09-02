@@ -92,8 +92,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # /health/ready, not /health. The latter is liveness — it answers as long
+    # as the process is running, deliberately touching nothing else — and the
+    # `web` service below waits on this condition before it starts. An API
+    # that cannot reach Postgres has no business being declared healthy and
+    # having a proxy put in front of it.
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/v1/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 6
@@ -109,6 +114,36 @@ services:
       - "${PUBLIC_PORT:-8080}:8080"
     depends_on:
       api:
+        condition: service_healthy
+
+  # `postgres_data` is a named volume, and nothing used to back it up: the
+  # whole of this application's data was one `docker volume rm` away from
+  # gone. This takes a compressed pg_dump on a timer and keeps a fortnight.
+  #
+  # Inside the compose network on purpose — Postgres is not published to the
+  # host, and it should stay that way. Same image as the database so the
+  # dumping client is never older than the server it dumps.
+  #
+  # BACKUP_PATH is a host directory by default so the dumps survive
+  # `docker compose down -v`, which is precisely the accident they exist for.
+  # Point it at a mount that is itself replicated somewhere else: a backup on
+  # the same disk as the database is not a backup.
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ./ops/pg-backup.sh:/usr/local/bin/pg-backup.sh:ro
+      - ${BACKUP_PATH:-./backups}:/backups
+    entrypoint: ["/bin/sh", "/usr/local/bin/pg-backup.sh"]
+    depends_on:
+      postgres:
         condition: service_healthy
 
 volumes:
