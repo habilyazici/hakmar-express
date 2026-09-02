@@ -1,430 +1,631 @@
 # Hakmar Express
 
-Ground-up rewrite of the Hakmar Express retail analytics dashboard, replacing
-the legacy Express/Sequelize/MySQL app. See the audit report and Milestone 1
-plan for the full rationale.
+Hakmar Express perakende analitik panelinin sıfırdan yeniden yazımı. Eski
+Express / Sequelize / MySQL uygulamasının yerini alır.
 
-## Stack
+- **API** — NestJS + Prisma + PostgreSQL
+- **Web** — React + Vite + TanStack Query
+- **Önbellek** — Redis (`@keyv/redis`)
+- **Monorepo** — pnpm workspaces + Turborepo
 
-- **API**: NestJS + Prisma + PostgreSQL
-- **Web**: React + Vite + TanStack Query
-- **Cache**: Redis (`@keyv/redis`)
-- **Monorepo**: pnpm workspaces + Turborepo
+---
 
-## Prerequisites
+## İçindekiler
 
-- Node 24, pnpm (`corepack enable`)
-- Docker Desktop (for local Postgres + Redis)
+- [Kurulum](#kurulum)
+- [Portlar](#portlar)
+- [Komutlar](#komutlar)
+- [Mimari](#mimari)
+- [API](#api)
+- [Güvenlik](#güvenlik)
+- [Gözlemlenebilirlik](#gözlemlenebilirlik)
+- [Dağıtım](#dağıtım)
+- [Durum](#durum)
 
-## Getting started
+---
+
+## Kurulum
+
+**Gerekenler:** Node 24, pnpm (`corepack enable`), Docker Desktop.
 
 ```bash
-docker compose up -d                          # postgres on :5433, redis on :6380
+docker compose up -d                          # postgres :5433, redis :6380
 pnpm install
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
-pnpm --filter api exec prisma migrate dev     # creates the schema
-pnpm --filter api exec prisma db seed         # creates the first superadmin
-pnpm dev                                      # api on :3001, web on :5174
+# apps/api/.env içindeki JWT_ACCESS_SECRET'ı gerçek bir değerle değiştirin:
+#   openssl rand -hex 32
+pnpm --filter api exec prisma migrate dev     # şemayı oluşturur
+pnpm --filter api exec prisma db seed         # ilk superadmin + il sınırları
+pnpm dev                                      # api :3001, web :5174
 ```
 
-The seed creates the first superadmin from `SEED_ADMIN_USERNAME` and
-`SEED_ADMIN_PASSWORD` in `apps/api/.env`. Copied straight from
-`.env.example` those are `superadmin` / `ChangeMe123!` — a dev-only default
-to change immediately. Changing the values and re-running the seed does not
-reset an existing account: the upsert leaves it alone, so change the password
-through the app or delete the row first.
+Ardından **http://localhost:5174** adresine gidin.
 
-### Ports
+### İlk hesap
 
-Nothing here sits on the default its ecosystem fights over, so this project
-runs beside whatever else you have open:
+Seed, `apps/api/.env` içindeki `SEED_ADMIN_USERNAME` ve `SEED_ADMIN_PASSWORD`
+değerlerinden ilk süper yöneticiyi oluşturur. `.env.example`'dan olduğu gibi
+kopyalandığında bunlar `superadmin` / `ChangeMe123!` olur — yalnızca geliştirme
+içindir, hemen değiştirin.
 
-| | default | here |
+Değerleri değiştirip seed'i yeniden çalıştırmak mevcut hesabı **sıfırlamaz**:
+upsert ona dokunmaz. Şifreyi uygulama üzerinden değiştirin ya da önce satırı
+silin.
+
+`JWT_ACCESS_SECRET` en az 32 karakter olmalı. Uygulama tüm ortamını açılışta
+doğrular ve eksik ya da hatalı değişkeni **adıyla söyleyerek** başlamayı
+reddeder.
+
+### Örnek veri
+
+Boş bir veritabanını kurgusal bir satış geçmişiyle doldurmak için — 17 şube,
+25 ürün, 25 ay boyunca ~2.500 fiş; her sayfanın gerçek bir şey göstermesine
+yetecek kadar:
+
+```bash
+pnpm --filter api seed:demo            # veri varsa reddeder
+pnpm --filter api seed:demo -- --force # siler ve yeniden üretir
+```
+
+---
+
+## Portlar
+
+Buradaki hiçbir servis, kendi ekosisteminin kapıştığı varsayılan portta
+oturmuyor. Böylece bu proje, açık olan başka ne varsa onun yanında çalışır.
+
+| | varsayılan | burada |
 | --- | --- | --- |
 | Postgres | 5432 | **5433** |
 | Redis | 6379 | **6380** |
 | API | 3000 | **3001** |
 | Web | 5173 | **5174** |
 
-Each default fails in a way that does not look like a port problem. A
-container that loses the race for 5432 just does not start, while
-`DATABASE_URL` connects perfectly happily to whichever server did — the first
-sign of that here was an authentication error from a database that had never
-heard of this project. Redis is worse: no authentication and numbered
-databases, so this app's cache would land inside another project's instance
-with nothing anywhere reporting a problem. Vite quietly moves to the next
-free port, which then fails CORS because the API is configured against the
-one it did not get.
+Bu bir titizlik meselesi değil: varsayılanların her biri, port sorunu gibi
+*görünmeyen* bir şekilde başarısız oluyor.
 
-Inside the compose network the ports are unchanged. The API's own default is
-still 3000 — a deployment sets `PORT` — and Vite's is pinned in
-`apps/web/vite.config.ts` with `strictPort`, so it fails loudly rather than
-drifting away from `WEB_ORIGIN`. Override either with `PORT` and `WEB_PORT`.
-CI leaves everything on the standard ports: a service container has the
-runner to itself.
+- **Postgres** — 5432 yarışını kaybeden konteyner sessizce başlamaz, ama
+  `DATABASE_URL` kazanan sunucuya gayet mutlu bağlanır. Buradaki ilk belirtisi,
+  bu projeden hiç haberi olmayan bir veritabanından gelen kimlik doğrulama
+  hatasıydı.
+- **Redis** — daha kötüsü: kimlik doğrulaması yok, veritabanları isimli değil
+  numaralı. Bu uygulamanın önbelleği başka bir projenin instance'ının içine
+  düşer ve hiçbir yerde hiçbir şey sorun bildirmez.
+- **Vite** — sessizce bir sonraki boş porta kayar, sonra CORS'ta patlar; çünkü
+  API alamadığı porta göre yapılandırılmıştır.
 
-`JWT_ACCESS_SECRET` must be at least 32 characters; the app validates its
-whole environment at startup and refuses to boot otherwise, naming the
-offending variable. Generate a real one with `openssl rand -hex 32`.
+Compose ağının içinde portlar değişmemiştir. API'nin kendi varsayılanı hâlâ
+3000'dir — dağıtım `PORT` ile söyler. Vite'ın portu `apps/web/vite.config.ts`
+içinde `strictPort` ile sabitlenmiştir, böylece sessizce kaymak yerine sesli
+biçimde başarısız olur. CI her şeyi standart portlarda bırakır: bir servis
+konteyneri runner'ı kendine ayırmıştır.
 
-## Scripts (run from repo root, fan out via Turborepo)
+---
+
+## Komutlar
+
+Hepsi kök dizinden çalışır ve Turborepo ile paketlere dağılır.
 
 ```bash
 pnpm lint
 pnpm typecheck
-pnpm test        # unit tests
-pnpm test:e2e    # e2e tests, needs postgres+redis running (see below)
+pnpm test        # birim testleri  (API 149, web 44)
+pnpm test:e2e    # e2e testleri    (144) — postgres + redis ayakta olmalı
 pnpm build
-pnpm --filter web test:smoke   # the built app in a real browser; needs a build first
+pnpm --filter web test:smoke   # gerçek tarayıcıda; önce build gerekir
 ```
 
-`test:smoke` is the only check that runs the application. Everything else
-inspects it without ever loading it, which is how three pages once shipped
-rendering nothing but the error boundary — the types were right, the build
-succeeded, and no test mounted them. Playwright starts the built API and the
-built web app itself, signs in, and requires that every page renders with no
-uncaught error and no 5xx. It takes about ten seconds, and CI runs it after
-the build.
+### `test:smoke` neden ayrı
 
-Add `:dev` (`pnpm --filter web test:smoke:dev`) to point it at the Vite dev
-server instead of the build. That is not redundant: the failure it was
-written for only ever appeared in dev, because the production bundler
-resolves what the dev server could not.
+Uygulamayı **çalıştıran** tek kontrol odur. Geri kalan her şey uygulamayı hiç
+yüklemeden inceler — üç sayfanın hata sınırından başka bir şey render etmeden
+yayına çıkması tam olarak böyle oldu: tipler doğruydu, build başarılıydı ve
+hiçbir test o sayfaları mount etmiyordu.
 
-The e2e suites run serially (`--runInBand`): they share one database, so they
-are not independent, and running them in parallel produced failures that
-looked random but were one suite reading another's half-finished state.
+Playwright, build edilmiş API'yi ve web uygulamasını kendisi ayağa kaldırır,
+giriş yapar ve her sayfanın yakalanmamış hata ve 5xx olmadan render olmasını
+şart koşar. Yaklaşık on saniye sürer; CI build'den sonra çalıştırır.
 
-`test:e2e` also raises the per-IP throttles for its own run. Every request in
-the suite comes from one address, so the limits that protect a real
-deployment reject the suite's own traffic — six tests failed with 429 on the
-login limit for anyone who copied `.env.example` and followed the README, and
-the forecast limit does the same to the Tahmin suite. Setting
-`LOGIN_RATE_LIMIT`, `SESSION_RATE_LIMIT` or `FORECAST_RATE_LIMIT` yourself
-still overrides it.
+`pnpm --filter web test:smoke:dev` aynı suite'i Vite geliştirme sunucusuna
+yöneltir. Bu tekrar değil: yazılma sebebi olan hata yalnızca dev'de
+görünüyordu, çünkü üretim bundler'ı dev sunucusunun çözemediğini çözüyor.
 
-To fill an empty database with a fictional retail history — 17 branches, 25
-products, ~2,500 receipts over 25 months, enough for every page to show
-something real:
+### E2E hakkında iki not
 
-```bash
-pnpm --filter api seed:demo            # refuses if data already exists
-pnpm --filter api seed:demo -- --force # wipe and regenerate
+E2E suite'leri seri çalışır (`--runInBand`): tek bir veritabanını paylaşırlar,
+yani bağımsız değildirler. Paralel çalıştırmak, rastgele görünen ama aslında
+bir suite'in diğerinin yarım kalmış durumunu okumasından kaynaklanan hatalar
+üretiyordu.
+
+`test:e2e` ayrıca kendi çalışması için IP başına limitleri yükseltir. Suite'in
+her isteği tek bir adresten gelir, yani gerçek bir dağıtımı koruyan limitler
+suite'in kendi trafiğini reddeder. Bu, `.env.example`'ı kopyalayıp README'yi
+izleyen herkes için altı testin 429 ile düşmesi demekti. Değişkenleri kendiniz
+verirseniz o değerler geçerli olur.
+
+---
+
+## Mimari
+
+Modüler monolit: tek bir dağıtılabilir API, şemanın kendi parçasına sahip
+çıkan modüllere bölünmüş ve birbirleriyle yalnızca ilan edilmiş bir yüzey
+üzerinden konuşuyor.
+
 ```
+apps/api/src/
+  common/            paylaşılan çekirdek — guard, filter, interceptor,
+                     middleware, CRUD tabanı, AuthenticatedUser, oran
+                     limitleri. Hiçbir özellik modülünü import etmez.
+  prisma/ cache/ config/    altyapı. Aynı kısıt.
+  sales/             fiş okuma modeli: metrik, granülerlik ve boyut sözlüğü
+                     ile bunu ifade eden SQL
+  auth/ users/ catalog/ geo/ people/ transactions/ health/
+  dashboard/ charts/ tables/ kds/ spatial-forecast/    sales/ üzerinde analitik
+packages/contracts/  iki tarafın da derlendiği HTTP sözleşmesi
+```
+
+### İki kural — hatırlanan değil, zorlanan
+
+1. **Paylaşılan çekirdek ve altyapı modülleri bir özellik modülünü import
+   edemez.** Bağımlılık oku yalnızca içeri doğrudur.
+2. **Bir modül komşusuna `index.ts` üzerinden ulaşır, başka hiçbir şeyle
+   değil.** Komşunun kullanması gereken her şey orada export edilir; gerisi
+   özeldir ve depo genelinde arama yapmadan değiştirilebilir.
+
+`eslint-plugin-boundaries` ikisini de zorlar (`apps/api/eslint.config.mjs`).
+Element'leri klasörlere göre eşleştiği için `src/` altındaki kompozisyon kökü
+dosyaları hiçbir element'e ait değildir ve kural onları göremez; her modülü
+import etmelerine izin verilir — zaten var oluş sebepleri budur — ama
+`src/*.ts`'e daraltılmış bir `no-restricted-imports` kuralı onları da ikinci
+kurala bağlar.
+
+`test/` kasıtlı olarak bunun tamamen dışındadır: e2e suite'leri controller'lardan
+test modülleri kurar, controller ise bir modülün komşusuna export etmesi
+gereken bir şey değil, HTTP giriş noktasıdır.
+
+Denemek için: `../sales` yerine `../sales/sales.sql` import edin ya da
+`common/`'un bir modülü import etmesini sağlayın — `pnpm lint` sınırı adıyla
+söyleyerek düşer.
+
+### Satış okuma modeli
+
+Altı modül `receipts` ve `receipt_items` üzerinde sorgu yapar. Her toplamı tek
+bir jenerik kurucudan geçirmek yerine — sorgu şekilleri gerçekten farklı ve o
+dolaylılık hiçbir şey kazandırmazdı — `sales/sales.sql.ts` **sözlüğe** sahip
+çıkar: fact join'i, beş metrik ifadesi, yedi periyot ifadesi ve yedi boyut
+join'i. Modüller kendi sorgularını bu parçalardan kurar.
+
+Bir metrik altı modül boyunca otuz yerde adlandırılıyordu — yirmi altısı elle
+yazılmış, dördü Charts'ın özel tuttuğu tablolarda. Yani bir kolonu yeniden
+adlandırmak otuzunu da grep'le bulmak demekti ve bulabilecek tek şey grep'ti:
+tip sistemi bir template literal'in içini göremez.
+
+Her parça, sorgunun `receipts`'i `r`, `receipt_items`'ı `ri` olarak
+adlandırdığını varsayar. Paylaşmanın bedeli bu.
+
+### API/web sözleşmesi
+
+`@hakmar/contracts` yanıt şekillerini ve query string'de yolculuk eden
+sözlükleri tutar. İki uygulama da buna karşı derlenir, böylece bir anlaşmazlık
+üretimde birinin fark ettiği boş bir kolon değil, bir **build hatası** olur.
+
+Query string'de giden her sözlük API'de bir TypeScript enum'u, sözleşmede bir
+string union olarak tanımlanır ve derleme zamanında ikisinin aynı kümeyi
+tarif ettiği doğrulanır. Yalnızca bir tarafa üye eklerseniz build, üyeyi ve
+eksik tarafı adıyla söyleyerek düşer.
+
+Bu; satış metrik/granülerlik/boyutunu (`sales.model.ts`), dashboard periyodunu,
+üç tahmin enum'unu, ısı haritası eksen eşleşmelerini, `/tables` sıralama
+varlığını, GeoJSON belge tipini ve `/charts/ranking`'in kabul ettiği beşte
+üçlük alt kümeyi kapsar. Bunların dördü asıl boşluktu: ikisi yalnızca API'nin
+içinde vardı, web listenin kendi elle yazılmış kopyasını tutuyordu; sıralama
+alt kümesi ise iki tarafta bağımsız olarak yazılmıştı ve hiçbir şey ikisini
+karşılaştırmıyordu — bir sayfanın, API'nin 400 ile yanıtladığı bir dropdown
+seçeneği sunması tam olarak böyle olur.
+
+`Role` bir değil iki komşuya karşı kontrol edilir. Bir alan kavramı olduğu için
+onu `common/types/role.ts` tanımlar — on dokuz dosya onu `generated/prisma`'dan
+import ediyordu, bu da bir şema artefaktını guard'ların, dekoratörlerin ve
+DTO'ların üzerine kurulduğu bir fikrin tanımı hâline getiriyordu. Kolona hâlâ
+Prisma sahip; o dosya üçünün uyuştuğunu doğrular.
+
+Para ve tarihin işin içinde olduğu yerde sözleşme onların temsili üzerinden
+parametriktir (`SummaryDto<M = string>`): API bir Postgres numeric'ini
+`Prisma.Decimal`, bir tarihi `Date` olarak tutar ve ikisi de JSON'dan geçerken
+string olur. Aksini varsaymak paylaşılan bir tipi dekoratif kılar.
+
+Başarısız yanıtlar da sözleşmededir (`ApiErrorEnvelope`). Web her başarısız
+istekte bundan `error.message` okur ve bunu, okuyan tek yerde satır içi yazılmış
+yapısal bir tiple yapıyordu — yani iki taraf yalnızca tesadüfen anlaşıyordu.
+
+Kasıtlı olarak paylaşılmayan: `/geo/geojson/city` içindeki GeoJSON belgesi,
+API'nin gerçekten tarif edemeyeceği bir JSON kolonudur; `GeoJsonPayload<T>` onu
+orada `unknown` bırakır ve şekli, onu çizen harita bileşeni verir. Bir tarafın
+ikisi adına iddiada bulunması değil, bir parametre.
+
+### Web
+
+`apps/web/src/features/<ad>/queries.ts` o özelliğin yaptığı her isteğe — cache
+anahtarları dahil — sahiptir; sayfalar hook'ları tüketir, asla URL kurmaz.
+Gönderilen parametrelerle uyuşmayan bir cache anahtarı tek bir ekranda bayat
+veri gösterir ve diğer her yerde görünmezdir; bu da ancak ikisi ayrı ayrı
+yazıldığında mümkündür.
+
+Yazma kontrolleri, kullanamayacak rollerden gizlenir (`useHasRole`, API'nin
+`@Roles()`'unu yansıtır). Bu uygulama değil sunum katmanıdır — istemci ne
+render ederse etsin sunucu isteği reddeder — ama tek olası sonucu 403 olan bir
+düğme, izin sınırı gibi değil bozuk ekran gibi okunur.
+
+Çıkış yapmak React Query cache'ini temizler. Cache, herhangi bir oturumdan uzun
+yaşayan modül düzeyinde bir singleton'dır ve hiçbir parçası kullanıcıya göre
+anahtarlanmamıştır; bu olmadan aynı makinede giriş yapan sonraki kişiye önceki
+hesabın cache'lenmiş yanıtları servis edilir.
+
+---
 
 ## API
 
-All routes are under `/api/v1` and require a bearer access token. RBAC is
-fail-closed: a route carrying neither `@Roles()` nor `@Public()` is denied,
-so a new endpoint cannot be left unguarded by omission.
+Tüm rotalar `/api/v1` altındadır ve bearer access token ister.
 
-Account management is SUPERADMIN-only, and the API refuses the requests that
-would make an installation unrecoverable: deactivating, demoting or deleting
-your own account, or removing the last active superadmin. Password hashes are
-excluded by the projection every read goes through, so one cannot reach a
-response by omission. Resetting a password, deactivating an account or
-changing a role revokes that user's refresh tokens — the role lives in the
-access token, so this caps leftover privilege at one token lifetime rather
-than for as long as the session keeps renewing.
-
-Sessions use a short-lived access token held only in browser memory, plus a
-rotating refresh token that exists solely as an httpOnly, `SameSite=Strict`
-cookie scoped to `/api/v1/auth` — no part of the credential is reachable
-from JavaScript. Because that cookie is the only thing the API accepts from
-a cookie and every other route authenticates with a bearer header, there is
-nothing for a cross-site request to abuse and no separate CSRF token is
-needed. Presenting an already-rotated refresh token revokes the whole
-session family — and rotation claims the presented token with a single
-conditional update, so two refreshes arriving together cannot both succeed
-off one token.
-
-Login, the session routes and the forecast run each carry their own per-IP
-limit rather than the loose global one (`LOGIN_RATE_LIMIT`,
-`SESSION_RATE_LIMIT`, `FORECAST_RATE_LIMIT`, sharing `LOGIN_RATE_TTL_MS` as
-their window). The forecast is there because it is the one expensive route
-that cannot be cached: every other analytics endpoint answers from Redis, so
-repeating a request costs nothing, while a forecast run reads the whole
-receipt history and fits a model per province every time.
-
-The built web app is served with a Content-Security-Policy whose `script-src`
-carries no `'unsafe-inline'`: every inline script on the page is hashed at
-build time, so an injected one does not run at all, and `connect-src`,
-`img-src` and `form-action` close the paths an injection would otherwise use
-to send anything out. That was the last third of the audit's fifth critical
-finding — "XSS plus a JWT in localStorage plus no CSP" — with the other two
-already answered by the in-memory access token and the httpOnly cookie above.
-`frame-ancestors` and HSTS cannot come from a `<meta>` tag, so those two
-still belong on whatever serves the files.
-
-| Area | Routes |
+| Alan | Rotalar |
 | --- | --- |
 | Auth | `POST /auth/login`, `/auth/refresh`, `/auth/logout`, `GET /auth/profile` |
+| Health | `GET /health` (liveness), `GET /health/ready` (readiness) |
 | Dashboard | `GET /dashboard/summary`, `/general-stats`, `/performance/:period`, `/daily-summary`, `/monthly-sales` |
 | Charts | `GET /charts/trend`, `/ranking`, `/heatmap`, `/basket-size`, `/profit-waterfall`, `/customer-loyalty`, `/geographic-sales` |
 | Tables | `GET /tables/ranking`, `/price-cost-history`, `/region-cost` |
 | KDS | `GET /kds/abc-analysis`, `/demand-forecast`, `/customer-segmentation`, `/market-basket` |
-| Spatial forecast | `POST /spatial-forecast/run`, `GET /spatial-forecast/runs`, `/runs/:id` (the Tahmin page's run history) |
-| Catalog | `/catalog/categories`, `/subcategories`, `/brands`, `/products` — list/read/create/update/delete |
-| Geo | `/geo/regions`, `/cities`, `/branches` — list/read/create/update/delete; `GET /geo/geojson/city` for the map boundaries |
-| People | `/people/customers`, `/cashiers` — list/read/create/update/delete |
-| Users | `/users` (SUPERADMIN only) — list/read/create/update/delete, `PATCH /users/:id/password`; `PATCH /users/me/password` for any role |
-| Transactions | `GET /transactions/receipts` (paginated, filter by date range / branch / cashier / customer), `GET /transactions/receipts/:id` with its line items |
+| Tahmin | `POST /spatial-forecast/run`, `GET /spatial-forecast/runs`, `/runs/:id` |
+| Catalog | `/catalog/categories`, `/subcategories`, `/brands`, `/products` — listele/oku/oluştur/güncelle/sil |
+| Geo | `/geo/regions`, `/cities`, `/branches` — CRUD; `GET /geo/geojson/city` harita sınırları |
+| People | `/people/customers`, `/cashiers` — CRUD |
+| Users | `/users` (yalnız SUPERADMIN) — CRUD, `PATCH /users/:id/password`; `PATCH /users/me/password` her rol için |
+| Transactions | `GET /transactions/receipts` (sayfalı; tarih aralığı / şube / kasiyer / müşteri filtresi), `GET /transactions/receipts/:id` |
 
-Master-data routes are read-open to every role and write-restricted to ADMIN
-and above, decided per method rather than per controller. List endpoints are
-paginated (`limit`, `offset`, `search`) and return `{ items, total, limit,
-offset }`; which columns `search` matches is fixed by each service, never
-supplied by the caller. Deleting a record something else still references
-returns 409, and a duplicate key returns 409, rather than either becoming a
-500.
+### Yetkilendirme
 
-The Charts and Tables routes replace ~51 near-identical legacy endpoints with
-parameterized ones. Every parameter that reaches SQL is validated against an
-enum first and then used only as a key into a lookup table of pre-written
-`Prisma.Sql` fragments — user input never becomes SQL text.
+RBAC **fail-closed**: ne `@Roles()` ne `@Public()` taşıyan bir rota reddedilir,
+yani yeni bir endpoint unutulma yoluyla korumasız bırakılamaz.
 
-## Architecture
+Ana veri rotaları her role okumaya açık, ADMIN ve üstüne yazmaya kısıtlıdır —
+controller başına değil, metot başına karar verilir. Liste endpoint'leri
+sayfalıdır (`limit`, `offset`, `search`) ve `{ items, total, limit, offset }`
+döner; `search`'ün hangi kolonlarda eşleştiğini her servis sabitler, çağıran
+asla belirlemez.
 
-A modular monolith: one deployable API, cut into modules that own their part
-of the schema and talk to each other only through a declared surface.
+Hesap yönetimi yalnızca SUPERADMIN'e açıktır ve API, bir kurulumu kurtarılamaz
+hâle getirecek istekleri reddeder: kendi hesabınızı kapatmak, rolünüzü
+düşürmek, kendinizi silmek ya da son aktif süper yöneticiyi kaldırmak.
+
+### Hata yanıtları
+
+Silmeye çalıştığınız kayıt hâlâ referans alınıyorsa 409, tekrar eden bir anahtar
+409 döner — ikisi de 500 olmak yerine. Prisma hata kodları bu uygulamanın
+gerçekten üretebileceği HTTP yanıtlarına eşlenir; eşlenmemiş bir kod gerçek bir
+sunucu hatasıdır ve kodu ile birlikte log'lanır, böylece boşluk sessiz kalmaz.
+
+### Parametreli sorgular
+
+Charts ve Tables rotaları, eski uygulamadaki ~51 neredeyse aynı endpoint'in
+yerini alır. SQL'e ulaşan her parametre önce bir enum'a karşı doğrulanır, sonra
+yalnızca önceden yazılmış `Prisma.Sql` parçalarından oluşan bir arama
+tablosunda anahtar olarak kullanılır. **Kullanıcı girdisi hiçbir zaman SQL
+metnine dönüşmez.**
+
+### Önbellek
+
+Analitik endpoint'leri Redis'ten yanıtlar (5–60 dakika, rotaya göre). Ana veriye
+yapılan başarılı bir yazma tüm cache'i temizler: hangi anahtarların
+etkilendiğini hesaplamak yerine hepsini atmak kasıtlıdır — girdiler URL'e göre
+anahtarlanır, tek bir ana veri değişikliği neredeyse her toplamı etkileyebilir
+ve bu yazmalar tanımı gereği seyrektir.
+
+Tahminin **sonucu** cache'lenmez (parametre uzayı geniş ve her çağrı kaydedilen
+bir olaydır), ama **girdisi** cache'lenir. `loadMonthlyHistory()` hiç parametre
+almaz: her seferinde `receipt_items`'ın tamamı üzerinde birebir aynı toplamdır
+ve uygulamadaki en pahalı sorgudur. Bir saat cache'lenir — ay granülerliğinde
+bir seri için doğru ölçek — ve Redis'e ulaşılamıyorsa hem okuma hem yazma
+veritabanına düşer: en kötü ihtimalle önlenmek istenen tarama geri gelir,
+sayfa düşmez.
+
+---
+
+## Güvenlik
+
+### Oturum
+
+Kısa ömürlü bir access token yalnızca tarayıcı belleğinde tutulur. Yenileme
+token'ı ise sadece `/api/v1/auth` kapsamına alınmış, `SameSite=Strict`,
+httpOnly bir çerez olarak vardır — kimlik bilgisinin hiçbir parçasına
+JavaScript'ten erişilemez.
+
+O çerez, API'nin bir çerezden kabul ettiği tek şey olduğundan ve diğer her rota
+bearer başlığıyla doğrulandığından, siteler arası bir isteğin istismar edeceği
+bir şey yoktur ve ayrı bir CSRF token'ına gerek kalmaz.
+
+Zaten döndürülmüş bir yenileme token'ı sunmak tüm oturum ailesini iptal eder.
+Rotasyon, sunulan token'ı tek bir koşullu güncellemeyle sahiplenir; böylece aynı
+anda gelen iki yenileme tek bir token üzerinden ikisi birden başarılı olamaz.
+
+Şifre sıfırlamak, hesabı kapatmak veya rol değiştirmek o kullanıcının yenileme
+token'larını iptal eder. Rol access token'ın içinde yolculuk ettiği için bu,
+artakalan yetkiyi oturumun kendini yenilediği süre boyunca değil, tek bir token
+ömrüyle (varsayılan 20 dakika) sınırlar.
+
+### Giriş uç noktası
+
+Kullanıcı bulunamadığında bile bcrypt karşılaştırması bir kukla hash'e karşı
+çalışır. Erken dönmek, hesap varlığını yanıt süresi üzerinden sızdırıyordu:
+ıskalama ~1ms, isabet ~100ms sürüyordu — ölçülmesi kolay bir fark ve giriş
+endpoint'ini bir kullanıcı adı kâhinine çeviriyor.
+
+Şifre kuralı yalnızca uzunluk değil: 12–128 karakter, en az bir küçük harf, bir
+büyük harf ve bir rakam. `MinLength(12)`'yi geçen ama on iki aynı karakterden
+oluşan bir şifre kısa olandan anlamlı ölçüde güçlü değildir.
+
+Şifre hash'leri, her okumanın geçtiği projeksiyonun dışındadır — yani unutma
+yoluyla bir yanıta ulaşamaz.
+
+### Oran limitleri
+
+Dördü de IP başınadır ve tek bir pencerede sayılır (`RATE_LIMIT_TTL_MS`).
+
+| Değişken | Varsayılan | Kapsam |
+| --- | --- | --- |
+| `GLOBAL_RATE_LIMIT` | 60 / dk | Kendi limitini bildirmeyen her rota |
+| `LOGIN_RATE_LIMIT` | 5 / dk | Giriş denemeleri |
+| `SESSION_RATE_LIMIT` | 20 / dk | Yenileme + çıkış |
+| `FORECAST_RATE_LIMIT` | 10 / dk | `POST /spatial-forecast/run` |
+
+Tek pencere kasıtlıdır: tek bir NAT arkasındaki bir ofis için pencereyi
+genişleten bir operatör "burada daha uzun bir süre boyunca say" demektedir ve
+bunun limitlerin yalnızca bir kısmında etkili olması bir tuzaktır.
+
+Bir sayfa açılışı tek bir istek değildir — Grafikler altı panel, Genel Bakış
+beş panel çeker. Tek bir çıkış adresinin arkasında bunlar kişiler arasında
+toplanır, yani halka açık bir dağıtımı koruyan limit tam olarak bir katı
+analisti kilitleyen limittir. Varsayılanı bırakın; ihtiyaç varsa
+`GLOBAL_RATE_LIMIT` ile söyleyin.
+
+Tahmin kendi limitini taşır çünkü sonucu cache'lenemeyen tek pahalı rotadır.
+Diğer her analitik endpoint Redis'ten yanıtlar, yani bir isteği tekrarlamak
+neredeyse bedavadır.
+
+Sağlık probları hiç kısıtlanmaz: birkaç saniyede bir tek adresten yoklayan bir
+prob, IP başına limitin durdurmak için var olduğu trafiğin ta kendisidir ve
+kendi sağlık kontrolünü kısıtlayan bir instance, cevabın en çok önem taşıdığı
+anda — yük altında — kendini düşük bildirir.
+
+### İçerik güvenliği
+
+Build edilmiş web uygulaması, `script-src`'ünde `'unsafe-inline'` taşımayan bir
+Content-Security-Policy ile servis edilir: sayfadaki her satır içi script build
+zamanında hash'lenir, yani enjekte edilen bir tanesi hiç çalışmaz.
+`connect-src`, `img-src` ve `form-action` ise bir enjeksiyonun dışarı bir şey
+göndermek için kullanacağı yolları kapatır.
+
+Bu, denetimin beşinci kritik bulgusunun ("XSS + localStorage'da JWT + CSP yok")
+son üçte biriydi; diğer ikisi bellekteki access token ve httpOnly çerezle zaten
+yanıtlanmıştı.
+
+`frame-ancestors` ve HSTS bir `<meta>` etiketinden gelemez, dolayısıyla o ikisi
+dosyaları servis eden şeye — `apps/web/nginx.conf` — aittir.
+
+### Bağımlılıklar
+
+CI `pnpm audit --prod --audit-level high` çalıştırır ve yüksek şiddetli bir
+uyarı build'i düşürür. Bir üst paketin henüz yükseltmediği geçişli bağımlılıklar
+`pnpm-workspace.yaml` içindeki `overrides` ile yamalı sürüme zorlanır; oradaki
+her satır susturulmuş değil **yanıtlanmış** bir uyarıdır.
+
+Dependabot haftalık olarak npm, aylık olarak GitHub Actions ve Docker temel
+imajlarını izler.
+
+---
+
+## Gözlemlenebilirlik
+
+Her isteğe bir **request id** atanır ve her tamamlanan istek tek bir satır
+log'lar:
 
 ```
-apps/api/src/
-  common/            shared kernel — guards, filters, interceptors, CRUD base,
-                     the AuthenticatedUser shape. Imports no feature module.
-  prisma/ cache/ config/     infrastructure. Same restriction.
-  sales/             owns the receipts read model: the metric, granularity and
-                     dimension vocabulary, and the SQL that expresses it
-  auth/ users/ catalog/ geo/ people/ transactions/
-  dashboard/ charts/ tables/ kds/ spatial-forecast/     analytics over sales/
-packages/contracts/  the HTTP contract both sides compile against
+LOG [HTTP] GET /api/v1/charts/trend?granularity=month 200 34.3ms [a852a2b1-…]
 ```
 
-Two rules, enforced rather than remembered (`apps/api/eslint.config.mjs`):
+Önceden burada hiçbir şey yoktu: erişim log'u yok, süre yok, log'daki bir 500'ü
+onu üreten isteğe bağlamanın yolu yok. Bu geliştirmede yaşanabilir bir
+durumdur — düşen istek, az önce yaptığınız istektir — ama bir dağıtımda değil:
+"bu sabah panel yavaştı" sorusunun cevabı, sürecin yazdıklarından çıkabilmeli.
 
-1. The shared kernel and the infrastructure modules may not import a feature
-   module. The dependency arrow only points inwards.
-2. A module reaches a neighbour through its `index.ts` and nothing else.
-   Everything a neighbour is meant to use is exported there; the rest is
-   private and can be changed without a search across the repo.
+- Gelen bir `X-Request-Id` varsa **korunur**, böylece istekleri zaten izleyen
+  bir proxy ya da çağıran kendi id'sini bu adımda kaybetmez. Gelen değer
+  sınırlanır ve bir log satırını taklit edebilecek karakterlerden arındırılır —
+  başlıktaki bir satır sonu, log injection'ın tamamıdır.
+- Id yanıtta geri döner ve **5xx'in gövdesine** konur. 500 bilerek hiçbir şey
+  söylemez, bu da kullanıcıya bildirecek bir şey bırakmaz; web o numarayı
+  gösterir, böylece "bir hata oluştu" raporu log'daki yığın izini bulur.
+- Interceptor değil **middleware**: böylece hiçbir handler'a ulaşmayan
+  istekleri de kapsar — bir 404 ve bir guard'ın reddettiği her şey, ki
+  throttler'ın 429'ları oradadır.
+- Sağlık proplarının **başarılı** yanıtları log'lanmaz. Konteyner sağlık
+  kontrolü on saniyede bir yoklar; günde dokuz bin satırın hiçbir şey
+  söylememesi, log'lamamaktan daha kötüdür — gerçek satırları bulmayı
+  zorlaştıran şey o hacimdir. Düşmeye başlayan bir prob ise bu dosyanın
+  içerebileceği en önemli satırdır ve o log'lanır. Her ikisi de id alır.
 
-`eslint-plugin-boundaries` enforces both. Its elements match folders, so the
-four composition-root files directly under `src/` belong to no element and
-it cannot see them; they are allowed to import every module — composing them
-is the job they exist to do — but a `no-restricted-imports` rule scoped to
-`src/*.ts` still holds them to rule 2.
+### İki sağlık probu
 
-`test/` is deliberately outside all of it: the e2e suites build testing
-modules out of controllers, and a controller is an HTTP entry point rather
-than something a module should export to its neighbours.
+İki farklı soruya cevap verirler ve bir dağıtım cevaplarla iki farklı şey yapar.
 
-Try it: import `../sales/sales.sql` instead of `../sales`, or make `common/`
-import a module, and `pnpm lint` fails naming the boundary.
+| Uç | Soru | Bağımlılık |
+| --- | --- | --- |
+| `GET /health` | Bu süreç ayakta mı? | Yok, kasıtlı olarak |
+| `GET /health/ready` | Bu instance gerçekten istek karşılayabilir mi? | Postgres + Redis |
 
-### The sales read model
+**Liveness** hiçbir şeye dokunmaz. Veritabanı düştüğünde başarısız olan bir
+liveness probu, bir veritabanı hıçkırığını her replikada bir yeniden başlatma
+döngüsüne çevirir — API'yi yeniden başlatmak Postgres'i düzeltemez ve her
+yeniden başlatma ısınmış bir bağlantı havuzunu çöpe atar.
 
-Six modules query `receipts` and `receipt_items`. Rather than route every
-aggregate through one generic builder — their query shapes genuinely differ,
-and the indirection would buy nothing — `sales/sales.sql.ts` owns the
-*vocabulary*: the fact join, the five metric expressions, the seven period
-expressions and the seven dimension joins. Modules compose their own queries
-from those fragments. A metric is named in thirty places across the six
-modules — twenty-six spelled out by hand, four in the lookup tables Charts
-kept privately — so renaming a column meant finding all thirty with grep,
-and grep was the only thing that could: the type system cannot see inside a
-template literal.
+**Readiness** yük dengeleyicinin yoklaması gereken ve compose'un API'ye bağlı
+her şeyi başlatmadan önce beklediği proptur. Bir bağımlılık düştüğünde gövdede
+hangisi olduğunu söyleyerek **503** döner — gövde faydalıdır, ama bir proxy'nin,
+bir orkestratörün ve `curl -f`'in gerçekten okuduğu şey durum kodudur.
 
-Every fragment assumes the query aliases `receipts` as `r` and
-`receipt_items` as `ri`. That is the price of sharing them.
+Redis kontrolü bir ping değil, bir yazma ve geri okumadır: bağlantı kabul eden
+ama yazmaları reddeden bir Redis — belleği dolmuş ya da salt-okunur bir replika
+— ping'e gayet mutlu cevap verirken uygulamadaki her cache yazması başarısız
+olur.
 
-### The API/web contract
+Her probun bir zaman aşımı vardır. Zaman aşımı olmadan erişilemeyen bir Postgres
+kontrolü düşürmez, **askıda bırakır** — ki bir yük dengeleyici bunu bozuk bir
+instance değil yavaş bir instance olarak okur ve probun kendisi hiç cevap
+vermeyen şey hâline gelir.
 
-`@hakmar/contracts` holds the response shapes and the vocabularies that
-travel in query strings. Both apps compile against it, so a disagreement is
-a build failure rather than an empty column someone notices in production.
+---
 
-Every vocabulary that travels in a query string is declared as a TypeScript
-enum in the API and as a string union in the contract, and asserted at
-compile time to describe the same set in both directions. Add a member to one
-side only and the build fails naming it and the side that is missing it. That
-covers the sales metric/granularity/dimension (`sales.model.ts`), the
-dashboard period, the three forecast enums, the heatmap axis pairings, the
-`/tables` ranking entity, the GeoJSON document type and the three-of-five
-subset `/charts/ranking` accepts. Four of those were the gap: two existed
-only inside the API, so the web kept its own hand-written copy of the list,
-and the ranking subset was spelled out independently on both sides with
-nothing comparing them — which is how a page ends up offering a dropdown
-option the API answers with a 400.
+## Dağıtım
 
-`Role` is checked against two neighbours rather than one. It is a domain
-concept, so `common/types/role.ts` declares it — nineteen files used to
-import it from `generated/prisma`, which made a schema artefact the
-definition of an idea the guards, the decorators and the DTOs are all built
-on. Prisma still owns the column; that file asserts the three agree.
-
-Where money and dates are involved the contract is parameterised over their
-representation (`SummaryDto<M = string>`): the API holds a Postgres numeric
-as a `Prisma.Decimal` and a date as a `Date`, and both become strings through
-JSON. Pretending otherwise is what makes a shared type decorative.
-
-Every response the web reads is covered, master data included. The nine
-CRUD entities used to run through `CrudService<unknown>`: the generic base
-declared its Prisma delegate as returning `unknown`, so the type argument
-was decorative and `Page<unknown>` came out the other end. The delegate is
-generic over the entity now, which makes assigning `prisma.city` to it a
-field-by-field check the compiler performs.
-
-Related records are optional in those DTOs on purpose — which relations come
-back is decided by each service's `include` config, and the delegate's type
-cannot see it. Optional is what the base class actually guarantees; required
-would be a claim nothing checks.
-
-`/tables` was the other holdout:
-its four ranking queries called `$queryRaw` with no generic at all, so a
-SELECT list that stopped matching what the web renders was nobody's compile
-error. They carry row types now, from the same file the web reads them from.
-
-What is deliberately not shared: the GeoJSON document inside
-`/geo/geojson/city` is a JSON column the API genuinely cannot describe, so
-`GeoJsonPayload<T>` leaves it `unknown` there and the map component that
-draws it supplies the shape. A parameter, rather than one side asserting for
-both.
-
-### Web
-
-`apps/web/src/features/<name>/queries.ts` owns every request that feature
-makes, including its cache keys; pages consume the hooks and never build a
-URL. A cache key that disagrees with the parameters actually sent shows stale
-data on one screen and is invisible on every other, which is only possible
-where the two are written out separately.
-
-Write controls are hidden from roles that cannot use them (`useHasRole`,
-mirroring the API's `@Roles()`). This is presentation, not enforcement — the
-server refuses the request whatever the client renders — but a button whose
-only possible outcome is 403 reads as a broken screen rather than as a
-permission boundary.
-
-Signing out clears the React Query cache. It is a module-level singleton that
-outlives any one session and none of it is keyed by user, so without that the
-next person to sign in on the same machine is served the previous account's
-cached answers.
-
-## Deployment
-
-`docker-compose.yml` starts only Postgres and Redis, so that `pnpm dev` has
-something to talk to. `docker-compose.prod.yml` builds and runs the
-application itself: nginx in front, the API behind it, both backing services
-behind those.
+`docker-compose.yml` yalnızca Postgres ve Redis'i başlatır, böylece `pnpm dev`
+konuşacak bir şey bulur. `docker-compose.prod.yml` uygulamanın kendisini build
+edip çalıştırır: önde nginx, arkasında API, ikisinin de arkasında iki servis.
 
 ```bash
-cp .env.prod.example .env.prod        # then fill it in
+cp .env.prod.example .env.prod        # sonra doldurun
 docker compose -f docker-compose.prod.yml --env-file .env.prod build
 docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm migrate
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 ```
 
-Then seed the first superadmin and the province boundaries, once:
+Sonra bir kereye mahsus, ilk süper yöneticiyi ve il sınırlarını ekleyin:
 
 ```bash
 docker compose -f docker-compose.prod.yml --env-file .env.prod \
   run --rm --entrypoint ./node_modules/.bin/tsx migrate prisma/seed.ts
 ```
 
-The seed script directly, rather than `prisma db seed`: that command spawns
-`tsx` off PATH, and inside the container it is only in `node_modules/.bin`.
-`pnpm exec` is out for a related reason — pnpm 11 checks the installed tree
-against the lockfile before running anything, and with no TTY that check
-tries an install of its own and fails asking for a confirmation it cannot
-get.
+`prisma db seed` yerine doğrudan seed script'i: o komut PATH'ten `tsx` çağırır,
+konteynerin içinde ise `tsx` yalnızca `node_modules/.bin` altındadır. `pnpm
+exec` de ilgili bir sebeple elenir — pnpm 11 herhangi bir şey çalıştırmadan önce
+kurulu ağacı lockfile'a karşı doğrular ve TTY yokken bu doğrulama kendi
+kurulumunu denemeye kalkıp alamayacağı bir onay isteyerek düşer.
 
-Only nginx publishes a port. Postgres, Redis and the API are reachable on the
-compose network and nowhere else — which is why the API can go on listening on
-its own default 3000 with nothing to collide with.
+Yalnızca nginx bir port yayınlar. Postgres, Redis ve API compose ağında
+erişilebilirdir, başka hiçbir yerde — API'nin kendi varsayılanı olan 3000'de
+çarpışacak hiçbir şey olmadan dinlemeye devam edebilmesinin sebebi budur.
 
-### Why the proxy is in front
+### Proxy neden önde
 
-nginx serves the built app **and** proxies `/api` to the API, so the browser
-talks to one origin. That is not a convenience:
+nginx hem build edilmiş uygulamayı servis eder **hem de** `/api`'yi API'ye
+proxy'ler, yani tarayıcı tek bir origin'le konuşur. Bu bir kolaylık değil:
 
-- No cross-origin request means no CORS, and no `WEB_ORIGIN` to keep in step
-  with wherever the app actually ended up being served.
-- The refresh cookie's `SameSite=Strict` does its job without the app and the
-  API having to agree on two hostnames.
-- It is the only place the security headers a `<meta>` tag cannot carry can
-  be set. Browsers ignore `frame-ancestors` in a policy delivered as markup,
-  so the page's own CSP — hashed per inline script, built in
-  `apps/web/vite.config.ts` — cannot forbid framing. nginx adds that
-  directive, along with `X-Content-Type-Options`, `Referrer-Policy` and a
-  `Permissions-Policy`. Two policies never weaken each other: each is
-  enforced on its own.
+- Siteler arası istek yoksa CORS da yoktur ve uygulamanın gerçekten servis
+  edildiği yerle senkron tutulacak bir `WEB_ORIGIN` de yoktur.
+- Yenileme çerezinin `SameSite=Strict`'i, uygulama ile API'nin iki ana ad
+  üzerinde anlaşmasına gerek kalmadan işini yapar.
+- `<meta>` etiketinin taşıyamayacağı güvenlik başlıklarının konabileceği tek
+  yer orasıdır. Tarayıcılar işaretleme olarak gelen bir politikadaki
+  `frame-ancestors`'ı yok sayar, dolayısıyla sayfanın kendi CSP'si çerçevelemeyi
+  yasaklayamaz. Bu direktifi `X-Content-Type-Options`, `Referrer-Policy` ve bir
+  `Permissions-Policy` ile birlikte nginx ekler. İki politika birbirini asla
+  zayıflatmaz: her biri kendi başına uygulanır.
 
-`VITE_API_URL` is therefore `/api/v1` in the image, baked in at build time —
-Vite substitutes it into the bundle, so it is a property of the image rather
-than something the container can be told later.
+`VITE_API_URL` bu yüzden imajda `/api/v1`'dir ve build zamanında gömülür — Vite
+onu bundle'a yazar, yani konteynere sonradan söylenebilecek bir şey değil,
+imajın bir özelliğidir.
 
-### What a deployment still owes
+### Yedekleme
 
-- **TLS.** Terminate it in front of the published port. `COOKIE_SECURE`
-  defaults to `true` in `.env.prod.example` and should stay that way: the
-  refresh cookie is a seven-day credential and has no business travelling
-  over plain HTTP. `Strict-Transport-Security` is written out but commented
-  in `apps/web/nginx.conf` — uncomment it only where that server is the one
-  terminating TLS.
-- **`TRUST_PROXY`.** Already set to `1` in the compose file, which is correct
-  for exactly this layout: one proxy in front. Change it if you put more
-  there, or the per-IP rate limits collapse into a single shared bucket for
-  every user behind it.
-- **Migrations.** `run --rm migrate` before bringing the API up, and again
-  after any deploy carrying a new one. It is a separate image on purpose: the
-  Prisma CLI that applies them is a dev dependency the runtime image does not
-  have, and a schema change should be an observable step rather than a side
-  effect of a restart — particularly with more than one API replica starting
-  at once.
-- **Backups.** `postgres_data` is a named volume and nothing here backs it up.
+`backup` servisi Postgres'in yanında çalışır ve zamanlayıcıyla sıkıştırılmış bir
+`pg_dump` alır (`ops/pg-backup.sh`). Varsayılan olarak günde bir, on dört günlük
+saklama.
 
-## Status
+Dump'lar `.part` adıyla yazılır ve yalnızca başarıda yeniden adlandırılır,
+böylece yarıda kesilmiş bir dump asla tamamlanmış sanılmaz — bir yedeği yanlış
+bir güvenlik hissine çeviren hata budur. Eskiler yalnızca **başarılı** bir
+dump'tan sonra budanır; koşulsuz budamak, iki haftalık hatanın son iyi yedeği
+sessizce silmesine izin verirdi.
 
-Shipped: the cross-cutting NestJS architecture (guards/interceptors/filters,
-validated environment, Redis cache), Prisma schema + migrations, auth with
-rotating refresh tokens and reuse detection, and the Dashboard, Charts,
-Tables, KDS Analytics and Spatial Forecast modules with unit and e2e
-coverage on CI.
+`BACKUP_PATH` varsayılan olarak bir host dizinidir, böylece dump'lar
+`docker compose down -v`'den sağ çıkar — zaten var oldukları kaza tam olarak
+budur. Kendisi başka bir yere kopyalanan bir mount'a yönlendirin: veritabanıyla
+aynı diskteki bir yedek, yedek değildir.
 
-Spatial Forecast fits one ordinary-least-squares model per city (or
-region) over that area's own monthly history, using a linear trend plus
-two Fourier harmonics for seasonality, and layers discount / cost /
-purchasing-power scenarios on top. A discount can be aimed at one category or
-product, in which case the API reads that target's real share of revenue out
-of the database rather than assuming one. Areas with too little history fall
-back to their mean and are labelled as such rather than presented as
-fitted. Every run is recorded in `spatial_forecast_runs` and can be reloaded
-from the page's history list, which redraws the numbers that run actually
-produced rather than recomputing them. The table keeps the most recent 200
-runs and prunes the rest: each row holds an entire per-area result, so
-retaining them forever would be pure growth on a button anyone can keep
-pressing. City runs are drawn as a choropleth of
-Türkiye's 81 provinces joined on licence-plate code — which is why
-`cities.plate_code` is unique: it is the join key, and two cities sharing one
-would silently paint over each other. See `apps/api/prisma/data/README.md`
-for the boundary data's source and licence.
+Geri yükleme:
 
-Web exposes a page per module — Dashboard, Charts, Tables, KDS Analiz,
-Tahmin, İşlemler, Yönetim and Kullanıcılar — behind a shared navigation
-shell. Heavier
-routes are lazy-loaded so the charting library stays out of the initial
-bundle.
+```bash
+# .env.prod'daki POSTGRES_USER / POSTGRES_DB değerlerini yazın: --env-file
+# yalnızca konteynere geçer, komutu yazdığınız kabuğa değil.
+docker compose -f docker-compose.prod.yml --env-file .env.prod \
+  exec -T postgres pg_restore -U hakmar -d hakmar --clean --if-exists \
+  < backups/hakmar-<zaman-damgası>.dump
+```
 
-Yönetim drives all nine master-data entities from one declarative table of
-resource definitions, with foreign keys rendered as dropdowns populated from
-the related endpoint. That generic approach is safe on the client in a way it
-would not have been on the server: the API validates every write regardless,
-so a mistake in the table produces a 400 the form displays rather than an
-unvalidated write.
+### Bir dağıtımın hâlâ borçlu olduğu
 
-Every feature area of the legacy application now has a replacement.
+- **TLS.** Yayınlanan portun önünde sonlandırın. `COOKIE_SECURE`,
+  `.env.prod.example`'da varsayılan olarak `true`'dur ve öyle kalmalıdır:
+  yenileme çerezi yedi günlük bir kimlik bilgisidir ve düz HTTP üzerinde
+  yolculuk etmesi söz konusu olamaz. `Strict-Transport-Security`
+  `apps/web/nginx.conf` içinde yazılı ama yorum satırıdır — yalnızca TLS'i
+  sonlandıran sunucu o ise açın.
+- **`TRUST_PROXY`.** Compose dosyasında `1` olarak ayarlı ve bu düzen için —
+  önde tek proxy — doğrudur. Daha fazlasını koyarsanız değiştirin, yoksa IP
+  başına limitler arkadaki herkes için tek bir paylaşılan kovaya çöker.
+- **Migration'lar.** API'yi ayağa kaldırmadan önce `run --rm migrate`, ve yeni
+  migration taşıyan her dağıtımdan sonra tekrar. Ayrı bir imaj olması kasıtlı:
+  onları uygulayan Prisma CLI bir geliştirme bağımlılığıdır ve runtime imajında
+  yoktur; bir şema değişikliği de yeniden başlatmanın yan etkisi değil,
+  gözlenebilir bir adım olmalıdır — özellikle aynı anda birden fazla API
+  replikası başlıyorsa.
 
-Decisions carried from the audit: Postgres over MySQL, Redis over the legacy
-ad-hoc cache, Prisma over Sequelize, the raw-SQL admin tool dropped in favor
-of Prisma Studio, the orphaned Subcategory relation completed, and the
-unimplementable stock-based pricing rule dropped.
+---
+
+## Durum
+
+Eski uygulamanın her özellik alanının artık bir karşılığı var.
+
+**Tamamlanan:** kesişen NestJS mimarisi (guard/interceptor/filter/middleware,
+doğrulanmış ortam, Redis cache, iki sağlık probu), Prisma şeması ve
+migration'lar, rotasyonlu yenileme token'ları ve tekrar tespitiyle auth, ve
+Dashboard, Grafikler, Tablolar, KDS Analiz, Tahmin, İşlemler, Yönetim,
+Kullanıcılar modülleri — CI'da birim, e2e ve tarayıcı kapsamıyla.
+
+### Tahmin ve Senaryo
+
+Her şehrin (veya bölgenin) kendi aylık geçmişi üzerine bir sıradan en küçük
+kareler modeli oturtur: doğrusal trend artı mevsimsellik için iki Fourier
+harmoniği. Üzerine indirim / maliyet / satın alma gücü senaryoları bindirir.
+
+Bir indirim tek bir kategoriye ya da ürüne yöneltilebilir; bu durumda API o
+hedefin gerçek ciro payını veritabanından okur, varsaymaz. Geçmişi yetersiz olan
+alanlar ortalamalarına düşer ve fit edilmiş gibi sunulmak yerine öyle
+etiketlenir.
+
+Her çalıştırma `spatial_forecast_runs`'a kaydedilir ve sayfanın geçmiş
+listesinden yeniden yüklenebilir — yeniden hesaplamak yerine o çalıştırmanın
+gerçekten ürettiği sayıları çizer. Tablo en yeni 200 çalıştırmayı tutar,
+gerisini budar: her satır alan başına eksiksiz bir sonuç tutar, yani hepsini
+sonsuza dek saklamak, herkesin basılı tutabileceği bir düğme üzerinde saf
+büyüme olurdu.
+
+Şehir çalıştırmaları Türkiye'nin 81 ilinin koroplet haritası olarak, plaka koduna
+göre eşleştirilerek çizilir — `cities.plate_code`'un unique olmasının sebebi
+budur: eşleşme anahtarıdır ve aynı kodu paylaşan iki şehir sessizce birbirinin
+üzerine boyar. Sınır verisinin kaynağı ve lisansı için
+`apps/api/prisma/data/README.md`.
+
+### Yönetim
+
+Dokuz ana veri varlığının hepsini tek bir bildirimsel kaynak tanımı tablosundan
+sürer; yabancı anahtarlar, ilgili endpoint'ten doldurulan dropdown'lar olarak
+render edilir. Bu jenerik yaklaşım istemcide, sunucuda olamayacağı kadar
+güvenlidir: API her yazmayı yine de doğrular, yani tablodaki bir hata
+doğrulanmamış bir yazma değil, formun gösterdiği bir 400 üretir.
+
+### Denetimden taşınan kararlar
+
+MySQL yerine Postgres, eski ad-hoc cache yerine Redis, Sequelize yerine Prisma,
+ham SQL yönetim aracı yerine Prisma Studio, yetim kalmış Subcategory ilişkisinin
+tamamlanması ve uygulanamaz stok temelli fiyatlama kuralının düşürülmesi.
