@@ -52,7 +52,7 @@ jobs:
           --health-retries 10
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # v6 is the first release that knows about pnpm 11, which is what
       # package.json pins. It also has to run before setup-node, whose
