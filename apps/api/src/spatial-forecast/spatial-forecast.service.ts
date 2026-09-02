@@ -1,4 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import type { Cache } from 'cache-manager';
 import { Prisma } from '../../generated/prisma/client';
 import type {
   AreaForecast,
@@ -8,6 +10,7 @@ import type {
   ForecastRunSummary,
   MetricValues,
 } from '@hakmar/contracts';
+import { errorText } from '../common';
 import { PrismaService } from '../prisma';
 import { SALES_METRIC_EXPR, SalesMetric } from '../sales';
 import {
@@ -57,6 +60,26 @@ const MIN_OBSERVATIONS = 7;
  */
 const RETAINED_RUNS = 200;
 
+/**
+ * The monthly history behind every run, cached under one key.
+ *
+ * `loadMonthlyHistory` takes no arguments: it is the same aggregate over the
+ * whole of `receipt_items` every single time, and it is the most expensive
+ * query in the application. The *result* of a run genuinely cannot be cached
+ * — the scenario parameters vary and each call is a recorded event — but its
+ * one input does not vary at all, which is what makes running the same scan
+ * again for every press of the button pure waste.
+ *
+ * An hour rather than the five-to-thirty minutes the analytics routes use,
+ * because this is a month-grained series: a receipt landing now cannot change
+ * a completed month, and the current month moves by a fraction of a percent
+ * over an hour. Master-data writes clear the whole cache through
+ * CacheInvalidationInterceptor, so the entry cannot outlive a change to the
+ * geography it is grouped by.
+ */
+const HISTORY_CACHE_KEY = 'spatial-forecast:monthly-history';
+const HISTORY_CACHE_TTL_MS = 60 * 60 * 1000;
+
 /** The spec builds MetricValues fixtures; the rest are used in signatures. */
 export type { MetricValues } from '@hakmar/contracts';
 
@@ -82,7 +105,10 @@ interface AreaMeta {
 export class SpatialForecastService {
   private readonly logger = new Logger(SpatialForecastService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
+  ) {}
 
   async run(dto: ForecastRequestDto): Promise<ForecastResult> {
     const mapType = dto.mapType ?? MapType.CITY;
@@ -268,7 +294,37 @@ export class SpatialForecastService {
     };
   }
 
+  /**
+   * Cached, because the query underneath it has no parameters — see
+   * HISTORY_CACHE_KEY. A cache that is unreachable must not take the feature
+   * down with it, so both the read and the write fall back to the database
+   * rather than throwing: the worst case is the scan this was meant to avoid.
+   */
   private async loadMonthlyHistory(): Promise<MonthlyRow[]> {
+    const cached = await this.cache
+      .get<MonthlyRow[]>(HISTORY_CACHE_KEY)
+      .catch((err: unknown) => {
+        this.logger.warn(
+          `Could not read the monthly history from cache: ${errorText(err)}`,
+        );
+        return null;
+      });
+    if (cached) return cached;
+
+    const rows = await this.queryMonthlyHistory();
+
+    await this.cache
+      .set(HISTORY_CACHE_KEY, rows, HISTORY_CACHE_TTL_MS)
+      .catch((err: unknown) => {
+        this.logger.warn(
+          `Could not cache the monthly history: ${errorText(err)}`,
+        );
+      });
+
+    return rows;
+  }
+
+  private async queryMonthlyHistory(): Promise<MonthlyRow[]> {
     const rows = await this.prisma.$queryRaw<
       {
         cityId: number;

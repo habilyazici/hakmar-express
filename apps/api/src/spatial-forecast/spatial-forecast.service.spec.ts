@@ -1,3 +1,4 @@
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma';
 import {
@@ -156,6 +157,7 @@ describe('SpatialForecastService', () => {
       findUniqueOrThrow: jest.Mock;
     };
   };
+  let cache: { get: jest.Mock; set: jest.Mock };
 
   /** 24 months of a clean upward trend for one city, starting Jan 2024. */
   function monthlyHistory(cityId = 1, months = 24) {
@@ -183,10 +185,18 @@ describe('SpatialForecastService', () => {
       },
     };
 
+    // A cache that always misses, so every test below still exercises the
+    // query path unless it says otherwise.
+    cache = {
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn().mockResolvedValue(undefined),
+    };
+
     const moduleRef = await Test.createTestingModule({
       providers: [
         SpatialForecastService,
         { provide: PrismaService, useValue: prisma },
+        { provide: CACHE_MANAGER, useValue: cache },
       ],
     }).compile();
 
@@ -407,5 +417,79 @@ describe('SpatialForecastService', () => {
     await service.saveRun(await aRun(), 7);
 
     expect(prisma.spatialForecastRun.deleteMany).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The monthly history is the most expensive query in the application and
+   * takes no parameters, so re-running it for every press of the button on
+   * the Tahmin page was the same scan over and over. These three cover the
+   * hit, the miss and the cache being unreachable.
+   */
+  describe('monthly history cache', () => {
+    it('serves a second run from the cache without touching the database', async () => {
+      const history = monthlyHistory();
+      prisma.$queryRaw.mockResolvedValue(history);
+      prisma.city.findMany.mockResolvedValue([]);
+
+      await service.run({ periodMonths: 6 });
+      const queriesAfterFirstRun = prisma.$queryRaw.mock.calls.length;
+
+      // What the first run wrote is what the second one reads.
+      const [, cached] = cache.set.mock.calls[0] as [string, unknown];
+      cache.get.mockResolvedValue(cached);
+
+      await service.run({ periodMonths: 6 });
+
+      // The history scan is gone; the discount-share query is not cached and
+      // still runs, so this is "no more than before", not "none at all".
+      expect(prisma.$queryRaw.mock.calls.length).toBeLessThan(
+        queriesAfterFirstRun * 2,
+      );
+      expect(cache.get).toHaveBeenCalledWith(
+        'spatial-forecast:monthly-history',
+      );
+    });
+
+    it('caches the parsed rows, not the raw decimal strings', async () => {
+      prisma.$queryRaw.mockResolvedValue(monthlyHistory(1, 12));
+      prisma.city.findMany.mockResolvedValue([]);
+
+      await service.run({ periodMonths: 6 });
+
+      const [key, value, ttl] = cache.set.mock.calls[0] as [
+        string,
+        { sales: unknown }[],
+        number,
+      ];
+      expect(key).toBe('spatial-forecast:monthly-history');
+      expect(ttl).toBe(60 * 60 * 1000);
+      // Numbers, because the regression consumes them directly. Caching the
+      // strings Postgres returns would move the parse onto every read.
+      expect(typeof value[0].sales).toBe('number');
+    });
+
+    /**
+     * Redis being down must degrade this to what it was before the cache
+     * existed, not take the page down with it.
+     */
+    it('still answers when the cache cannot be reached', async () => {
+      cache.get.mockRejectedValue(new Error('redis is down'));
+      cache.set.mockRejectedValue(new Error('redis is down'));
+      prisma.$queryRaw.mockResolvedValue(monthlyHistory());
+      prisma.city.findMany.mockResolvedValue([
+        {
+          id: 1,
+          name: 'Test City',
+          plateCode: 34,
+          regionId: 10,
+          region: { name: 'Test Region' },
+        },
+      ]);
+
+      const result = await service.run({ periodMonths: 6 });
+
+      expect(result.areas).toHaveLength(1);
+      expect(result.areas[0].method).toBe('regression');
+    });
   });
 });
