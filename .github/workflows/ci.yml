@@ -67,6 +67,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Nothing here checked what the lockfile actually pulls in. A known
+      # vulnerability in a transitive dependency is exactly the kind of thing
+      # no test can find and no reviewer reads a lockfile diff carefully
+      # enough to catch.
+      #
+      # `--prod` and `--audit-level high`: this fails a build, so it has to
+      # fail on things worth failing on. A moderate advisory in a build-time
+      # tool is a thing to schedule, not a thing to stop a merge — those still
+      # show in the output, they just do not set the exit code.
+      - name: Audit dependencies
+        run: pnpm audit --prod --audit-level high
+
       - name: Apply database migrations
         run: pnpm --filter api exec prisma migrate deploy
 
