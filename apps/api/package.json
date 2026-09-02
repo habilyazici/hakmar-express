@@ -21,7 +21,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "LOGIN_RATE_LIMIT=${LOGIN_RATE_LIMIT:-200} SESSION_RATE_LIMIT=${SESSION_RATE_LIMIT:-200} FORECAST_RATE_LIMIT=${FORECAST_RATE_LIMIT:-200} NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-e2e.json --runInBand",
+    "test:e2e": "GLOBAL_RATE_LIMIT=${GLOBAL_RATE_LIMIT:-2000} LOGIN_RATE_LIMIT=${LOGIN_RATE_LIMIT:-200} SESSION_RATE_LIMIT=${SESSION_RATE_LIMIT:-200} FORECAST_RATE_LIMIT=${FORECAST_RATE_LIMIT:-200} NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-e2e.json --runInBand",
     "lint:fix": "eslint \"{src,apps,libs,test,prisma}/**/*.ts\" --fix"
   },
   "dependencies": {
@@ -40,7 +40,6 @@
     "@prisma/client": "^7.9.1",
     "bcrypt": "^6.0.0",
     "cache-manager": "^7.2.9",
-    "cacheable": "^2.5.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",
