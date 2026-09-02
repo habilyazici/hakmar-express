@@ -7,8 +7,6 @@ import { useSyncExternalStore } from 'react';
  */
 export type ThemeChoice = 'system' | 'light' | 'dark';
 
-export const THEME_CHOICES: ThemeChoice[] = ['system', 'light', 'dark'];
-
 const STORAGE_KEY = 'hakmar.theme';
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 

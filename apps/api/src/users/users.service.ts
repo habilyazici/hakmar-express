@@ -24,7 +24,6 @@ const PUBLIC_FIELDS = {
   fullName: true,
   email: true,
   jobTitle: true,
-  photoPath: true,
   role: true,
   isActive: true,
   lastLogin: true,

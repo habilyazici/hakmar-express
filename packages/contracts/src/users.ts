@@ -13,7 +13,6 @@ export interface AdminUserDto<D = string> {
   fullName: string;
   email: string | null;
   jobTitle: string | null;
-  photoPath: string | null;
   role: Role;
   isActive: boolean;
   lastLogin: D | null;

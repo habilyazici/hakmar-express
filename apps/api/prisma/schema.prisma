@@ -25,7 +25,6 @@ model AdminUser {
   passwordHash  String               @map("password_hash")
   fullName      String               @map("full_name")
   email         String?              @unique
-  photoPath     String?              @map("photo_path")
   jobTitle      String?              @map("job_title")
   role          Role                 @default(ADMIN)
   isActive      Boolean              @default(true) @map("is_active")

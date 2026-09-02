@@ -144,7 +144,6 @@ export class AuthService {
         fullName: true,
         email: true,
         jobTitle: true,
-        photoPath: true,
         role: true,
         lastLogin: true,
       },
