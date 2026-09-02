@@ -10,6 +10,7 @@ import {
 import type { Cache } from 'cache-manager';
 import type { Request } from 'express';
 import { Observable, from, switchMap } from 'rxjs';
+import { errorText } from '../errors/error-text';
 
 const MUTATING = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 
@@ -54,7 +55,7 @@ export class CacheInvalidationInterceptor implements NestInterceptor {
             // already succeeded; the worst case is briefly stale reports.
             this.logger.error(
               `Failed to clear the response cache after ${request.method} ${request.url}`,
-              err instanceof Error ? err.stack : String(err),
+              errorText(err),
             );
           }),
         ).pipe(switchMap(() => from([data]))),
