@@ -9,6 +9,8 @@ build/
 *.log
 .DS_Store
 coverage/
+# Where docker-compose.prod.yml's backup service writes its pg_dumps.
+backups/
 playwright-report/
 test-results/
 .vscode/
