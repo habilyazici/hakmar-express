@@ -73,6 +73,25 @@ describe('apiErrorMessage', () => {
     );
   });
 
+  /**
+   * A 500 deliberately says nothing about what went wrong, which leaves the
+   * user with nothing to report. The API returns the id it logged the
+   * failure under; surfacing it is what makes the report actionable.
+   */
+  it('quotes the request id when the server sends one', () => {
+    const error = apiError(500);
+    error.response!.data = {
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Internal server error',
+        requestId: 'ab12-cd34',
+      },
+    };
+
+    expect(apiErrorMessage(error)).toContain('ab12-cd34');
+  });
+
   it('handles something that is not an axios error at all', () => {
     expect(apiErrorMessage(new Error('boom'))).toBe(
       'Beklenmeyen bir hata oluştu.',

@@ -5,14 +5,15 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '../../../generated/prisma/client';
+import type { ApiErrorEnvelope } from '@hakmar/contracts';
 import { AllExceptionsFilter } from './all-exceptions.filter';
 
 interface CapturedResponse {
   status: number;
-  body: { success: boolean; error: { code: string; message: string } };
+  body: ApiErrorEnvelope;
 }
 
-function runFilter(exception: unknown): CapturedResponse {
+function runFilter(exception: unknown, requestId?: string): CapturedResponse {
   const captured = {} as CapturedResponse;
   const response = {
     status(code: number) {
@@ -25,7 +26,10 @@ function runFilter(exception: unknown): CapturedResponse {
     },
   };
   const host = {
-    switchToHttp: () => ({ getResponse: () => response }),
+    switchToHttp: () => ({
+      getRequest: () => ({ requestId }),
+      getResponse: () => response,
+    }),
   } as unknown as ArgumentsHost;
 
   new AllExceptionsFilter().catch(exception, host);
@@ -102,5 +106,24 @@ describe('AllExceptionsFilter', () => {
     expect(res.status).toBe(500);
     expect(res.body.error.message).toBe('Internal server error');
     expect(JSON.stringify(res.body)).not.toContain('hunter2');
+  });
+
+  /**
+   * A 500 says nothing useful by design, which leaves a user with nothing to
+   * report. The request id is the handle that ties what they saw to the
+   * stack trace the same request wrote to the log.
+   */
+  it('returns the request id on a server fault so it can be quoted', () => {
+    const res = runFilter(new Error('boom'), 'req-123');
+
+    expect(res.status).toBe(500);
+    expect(res.body.error.requestId).toBe('req-123');
+  });
+
+  it('does not attach a request id to a client error', () => {
+    const res = runFilter(new BadRequestException('nope'), 'req-123');
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.requestId).toBeUndefined();
   });
 });

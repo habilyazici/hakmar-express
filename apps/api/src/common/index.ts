@@ -20,6 +20,7 @@ export * from './guards/jwt-auth.guard';
 export * from './guards/roles.guard';
 export * from './interceptors/cache-invalidation.interceptor';
 export * from './interceptors/transform.interceptor';
+export * from './middleware/request-context.middleware';
 export * from './types/authenticated-user.type';
 export * from './types/contract-check';
 export * from './types/role';

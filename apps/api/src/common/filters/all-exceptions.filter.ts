@@ -6,8 +6,10 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
+import type { ApiErrorEnvelope } from '@hakmar/contracts';
 import { Prisma } from '../../../generated/prisma/client';
+import { errorText } from '../errors/error-text';
 
 interface ErrorShape {
   status: number;
@@ -44,9 +46,10 @@ const PRISMA_ERROR_MAP: Record<string, { status: number; message: string }> = {
 
 /**
  * Registered globally (APP_FILTER). Every error response is shaped the same
- * way: { success: false, error: { code, message } }. The legacy app mixed
- * `error` and `message` fields inconsistently across controllers, forcing
- * defensive `err.message || err.error` handling on the frontend.
+ * way — `ApiErrorEnvelope`, declared in the contract the web reads it from.
+ * The legacy app mixed `error` and `message` fields inconsistently across
+ * controllers, forcing defensive `err.message || err.error` handling on the
+ * frontend.
  */
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -54,19 +57,26 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
+    const request = ctx.getRequest<Request>();
     const response = ctx.getResponse<Response>();
     const { status, code, message } = this.describe(exception);
+    const requestId = request.requestId;
+
+    const body: ApiErrorEnvelope = { success: false, error: { code, message } };
 
     if (status >= 500) {
+      // The id goes in the body of a server fault and nowhere else. It is
+      // what turns "it said something went wrong" into a line in the log;
+      // a 400 already names the field that failed and needs no such handle.
+      if (requestId) body.error.requestId = requestId;
       this.logger.error(
-        exception instanceof Error ? exception.stack : String(exception),
+        requestId
+          ? `[${requestId}] ${errorText(exception)}`
+          : errorText(exception),
       );
     }
 
-    response.status(status).json({
-      success: false,
-      error: { code, message },
-    });
+    response.status(status).json(body);
   }
 
   private describe(exception: unknown): ErrorShape {

@@ -1,3 +1,4 @@
+import type { ApiErrorEnvelope } from '@hakmar/contracts';
 import { isAxiosError } from 'axios';
 
 /**
@@ -56,9 +57,9 @@ export function apiErrorMessage(error: unknown, noun = 'kayıt'): string {
   }
 
   const status = error.response?.status;
-  const body = error.response?.data as
-    | { error?: { message?: string } }
-    | undefined;
+  // The contract's own shape, rather than a structural type written out here
+  // — the two used to agree only by coincidence.
+  const body = error.response?.data as ApiErrorEnvelope | undefined;
   const serverMessage = body?.error?.message;
   const translated = translate(serverMessage);
 
@@ -79,7 +80,15 @@ export function apiErrorMessage(error: unknown, noun = 'kayıt'): string {
       return `Bu ${noun} başka kayıtlarla ilişkili veya aynısı zaten var.`;
     case 429:
       return 'Çok fazla istek gönderildi. Bir dakika sonra tekrar deneyin.';
-    default:
-      return 'İşlem tamamlanamadı. Lütfen tekrar deneyin.';
+    default: {
+      // A 5xx says nothing on purpose, which leaves the user with nothing to
+      // report. The API returns the id it logged the failure under; showing
+      // it is what makes "bir hata oluştu" actionable for whoever reads the
+      // logs afterwards.
+      const requestId = body?.error?.requestId;
+      return requestId
+        ? `İşlem tamamlanamadı. Tekrar deneyin; sürerse şu numarayı iletin: ${requestId}`
+        : 'İşlem tamamlanamadı. Lütfen tekrar deneyin.';
+    }
   }
 }
