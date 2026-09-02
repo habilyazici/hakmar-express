@@ -15,7 +15,9 @@
     "LOGIN_RATE_LIMIT",
     "SESSION_RATE_LIMIT",
     "FORECAST_RATE_LIMIT",
-    "LOGIN_RATE_TTL_MS"
+    "GLOBAL_RATE_LIMIT",
+    "RATE_LIMIT_TTL_MS",
+    "TRUST_PROXY"
   ],
   "tasks": {
     "build": {

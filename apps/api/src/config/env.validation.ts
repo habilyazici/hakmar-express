@@ -71,6 +71,15 @@ export class EnvironmentVariables {
   @IsString()
   COOKIE_SECURE?: string;
 
+  /**
+   * The four per-IP limits. GLOBAL_RATE_LIMIT is the one every route
+   * inherits; the other three belong to routes that declare their own.
+   */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  GLOBAL_RATE_LIMIT?: number;
+
   @IsOptional()
   @IsInt()
   @Min(1)
@@ -86,11 +95,11 @@ export class EnvironmentVariables {
   @Min(1)
   FORECAST_RATE_LIMIT?: number;
 
-  /** The window shared by every per-IP limit above, not only login's. */
+  /** The window all four of them count over. */
   @IsOptional()
   @IsInt()
   @Min(1000)
-  LOGIN_RATE_TTL_MS?: number;
+  RATE_LIMIT_TTL_MS?: number;
 
   @IsOptional()
   @IsString()

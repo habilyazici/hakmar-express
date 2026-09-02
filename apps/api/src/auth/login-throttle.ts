@@ -1,4 +1,4 @@
-import { positiveIntFromEnv } from '../common';
+import { throttleFromEnv } from '../common';
 
 /**
  * Login throttling is per-IP, and the default of 5 attempts a minute is
@@ -11,18 +11,10 @@ import { positiveIntFromEnv } from '../common';
  * evaluated when the class is defined, before any provider exists. The
  * values are static configuration, so that is a fair trade.
  */
-export const LOGIN_THROTTLE = {
-  limit: positiveIntFromEnv('LOGIN_RATE_LIMIT', 5),
-  ttl: positiveIntFromEnv('LOGIN_RATE_TTL_MS', 60_000),
-};
+export const LOGIN_THROTTLE = throttleFromEnv('LOGIN_RATE_LIMIT', 5);
 
 /**
- * Refresh and logout are cheap and legitimately repeat more often. They share
- * LOGIN_RATE_TTL_MS as their window on purpose: it is one "how long is a rate
- * window here" knob, and splitting it would mean an operator who widened the
- * window for a NAT'd office silently only widened half of it.
+ * Refresh and logout are cheap and legitimately repeat more often — a tab
+ * left open renews its session on a timer, and several tabs do it at once.
  */
-export const SESSION_THROTTLE = {
-  limit: positiveIntFromEnv('SESSION_RATE_LIMIT', 20),
-  ttl: positiveIntFromEnv('LOGIN_RATE_TTL_MS', 60_000),
-};
+export const SESSION_THROTTLE = throttleFromEnv('SESSION_RATE_LIMIT', 20);
