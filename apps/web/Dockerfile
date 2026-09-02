@@ -5,7 +5,7 @@
 #
 #   docker build -f apps/web/Dockerfile -t hakmar-web .
 
-FROM node:24-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 WORKDIR /repo
 RUN corepack enable
 COPY . .
