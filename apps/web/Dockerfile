@@ -21,7 +21,7 @@ ENV VITE_API_URL=/api/v1
 RUN pnpm --filter @hakmar/contracts build \
  && pnpm --filter web build
 
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.31-alpine AS runtime
 COPY --from=build /repo/apps/web/dist /usr/share/nginx/html
 COPY --from=build /repo/apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /repo/apps/web/nginx-security-headers.conf /etc/nginx/snippets/security-headers.conf
