@@ -10,7 +10,7 @@
 # engine are native; alpine is musl, where the prebuilt binaries do not apply
 # and the build falls back to compiling from source — which needs a toolchain
 # the image would then carry for nothing.
-FROM node:24-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 WORKDIR /repo
 RUN corepack enable
 
@@ -63,7 +63,7 @@ WORKDIR /repo/apps/api
 CMD ["./node_modules/.bin/prisma", "migrate", "deploy"]
 
 # ---------------------------------------------------------------------------
-FROM node:24-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 
