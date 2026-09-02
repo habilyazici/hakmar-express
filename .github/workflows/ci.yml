@@ -59,7 +59,7 @@ jobs:
       # pnpm cache needs a pnpm on PATH to ask for the store path.
       - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
